@@ -2,7 +2,12 @@ import SwiftUI
 /// An inline calendar avoids a separate key window so outside-click dismissal stays predictable.
 struct CalendarPicker: View {
     @Binding var date: Date
-    private let calendar = Calendar.current
+    private var calendar: Calendar {
+        var value = Calendar(identifier: .gregorian)
+        value.locale = .current
+        value.timeZone = .current
+        return value
+    }
     private var month: Int { calendar.component(.month, from: date) }
     private var year: Int { calendar.component(.year, from: date) }
     private func select(year: Int, month: Int, day: Int) {

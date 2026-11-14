@@ -48,7 +48,7 @@ struct ContentView: View {
                     } label: { Label(store.draft.title.isEmpty ? "New task" : "Continue draft", systemImage: "plus").frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent)
                 }
                 Text("Local only · no Reminders access or notifications").font(.system(size: 10)).foregroundStyle(.secondary)
-            }.padding(20).frame(width: 380, height: 680).background(.background)
+            }.padding(20).frame(maxWidth: .infinity, maxHeight: .infinity).background(.background)
         }
     }
 }

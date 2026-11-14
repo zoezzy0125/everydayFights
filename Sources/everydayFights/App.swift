@@ -24,7 +24,9 @@ import AppKit
     @objc private func toggle() {
         if panel.isVisible { panel.orderOut(nil); return }
         let frame = (status.button?.window?.screen ?? NSScreen.main)?.visibleFrame ?? .zero
-        panel.setFrameOrigin(NSPoint(x: frame.maxX - 392, y: frame.maxY - 692))
+        let height = min(704, frame.height - 16)
+        let width = min(380, frame.width - 16)
+        panel.setFrame(NSRect(x: frame.maxX - width - 8, y: frame.maxY - height - 8, width: width, height: height), display: false)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
     }

@@ -12,7 +12,7 @@ An original, local-first macOS menu-bar to-do app. Small steps. A little stronge
 - 默认 **Daily Todo**，空列表展示鼓励语。未完成日常任务在之后的日期继续显示，**不修改原截止日期**。历史完成项不滚入今天。
 - **Short-term Goal** 按截止日期升序显示倒计时：今日及逾期 🚨、明日 👿、2–7 天 🔥、8–30 天 🏃、31 天及以上 😌。自定义 emoji 优先。
 - 新任务支持标题、日期、Today、可选时间、自定义 emoji、多条独立勾选的小事项。
-- 点击日历按钮展开日期网格，可直接选月份、年份，再点具体日期。时间和日期本身不是系统通知。
+- 点击日历按钮展开公历日期网格，可直接选月份、年份，再点具体日期。时间和日期本身不是系统通知。
 - 草稿和任务即时原子写入本地 JSON；关闭面板、退出应用、重新启动后仍保留。
 
 ## Build / 编译安装
@@ -38,7 +38,7 @@ This initial release is source-first. The local app is ad-hoc signed, **not Deve
 - `Draft`: persistent new-task editor fields, including one checklist item per line.
 - Versioned `Snapshot` stores both in `~/Library/Application Support/everydayFights/tasks.json`.
 - Daily carry-forward is a **view predicate**, not a deadline rewrite. Countdown uses local calendar days rather than 24-hour intervals. The interface refreshes every 30 seconds while visible.
-- Completing a parent does not alter child completion flags, and vice versa. Completed parents are hidden unless “Show completed” is enabled.
+- Completing a parent does not alter child completion flags, and vice versa. Completed goals can be revealed with “Show completed”. In Daily Todo, this switch only reveals completed tasks whose original deadline is today. A carried-forward task disappears after completion and cannot currently be reopened from the UI; a history browser is not implemented.
 - **Apple Reminders / iCloud / EventKit: no integration in v0.1.** No permissions requested, no imports, no reads or writes to system reminders, and no modification of another app's data. There are no claimed “system deadlines” to sync: original dates here belong to this app only.
 - **Notifications: not implemented in v0.1.** Setting a time only stores/displays that time; it does not schedule an alert or alarm.
 - This version has no task editing/deletion UI, recurring tasks, shared lists, history browser, search, cross-device sync, global hotkey, or edge-hover trigger. Use the menu-bar control to open the side panel.
