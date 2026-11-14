@@ -27,6 +27,15 @@ final class TaskTests: XCTestCase {
         let decoded = try JSONDecoder().decode(Snapshot.self, from: JSONEncoder().encode(s))
         XCTAssertEqual(decoded.tasks, s.tasks); XCTAssertEqual(decoded.draft, d)
     }
+    func testUndatedImportKeepsNoDeadline() throws {
+        var t = FightTask(title: "Synthetic undated import", kind: .goal, dueDate: nil)
+        t.sourceReminderID = "synthetic-source-id"
+        XCTAssertEqual(t.countdown(), "No deadline")
+        XCTAssertEqual(t.badge(), "📌")
+        let copy = try JSONDecoder().decode(FightTask.self, from: JSONEncoder().encode(t))
+        XCTAssertNil(copy.dueDate)
+        XCTAssertEqual(copy.sourceReminderID, "synthetic-source-id")
+    }
     func testCalendarDayAcrossDST() {
         var c = calendar; c.timeZone = TimeZone(identifier: "America/Los_Angeles")!
         let start = c.date(from: DateComponents(year: 2026, month: 3, day: 8))!

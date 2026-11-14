@@ -22,7 +22,7 @@ struct ContentView: View {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         let visible = store.tasks.filter { task in
                             (tab == .daily ? task.appearsInDaily(on: context.date) : task.kind == .goal) && (showCompleted || !task.isComplete)
-                        }.sorted { $0.dueDate < $1.dueDate }
+                        }.sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
                         if visible.isEmpty {
                             VStack(spacing: 12) {
                                 Text("🌱").font(.system(size: 42))
@@ -63,9 +63,11 @@ struct TaskRow: View {
                 Text(task.kind == .goal ? task.badge(on: now) : (task.emoji.isEmpty ? "🌱" : task.emoji))
             }
             HStack {
-                Text(task.kind == .goal ? task.countdown(on: now) : (task.daysRemaining(on: now) < 0 ? "Carried forward" : "Today"))
+                Text(task.dueDate == nil ? "No deadline" : task.kind == .goal ? task.countdown(on: now) : (task.daysRemaining(on: now) < 0 ? "Carried forward" : "Today"))
                 Spacer()
-                Text(task.dueDate, format: task.includesTime ? .dateTime.month().day().hour().minute() : .dateTime.month().day())
+                if let dueDate = task.dueDate {
+                    Text(dueDate, format: task.includesTime ? .dateTime.month().day().hour().minute() : .dateTime.month().day())
+                }
             }.font(.caption).foregroundStyle(.secondary)
             ForEach($task.checklist) { $item in
                 Toggle(isOn: $item.isComplete) { Text(item.title).strikethrough(item.isComplete) }.toggleStyle(.checkbox).font(.subheadline).padding(.leading, 16)

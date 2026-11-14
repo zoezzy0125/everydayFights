@@ -39,7 +39,7 @@ This initial release is source-first. The local app is ad-hoc signed, **not Deve
 - Versioned `Snapshot` stores both in `~/Library/Application Support/everydayFights/tasks.json`.
 - Daily carry-forward is a **view predicate**, not a deadline rewrite. Countdown uses local calendar days rather than 24-hour intervals. The interface refreshes every 30 seconds while visible.
 - Completing a parent does not alter child completion flags, and vice versa. Completed goals can be revealed with “Show completed”. In Daily Todo, this switch only reveals completed tasks whose original deadline is today. A carried-forward task disappears after completion and cannot currently be reopened from the UI; a history browser is not implemented.
-- **Apple Reminders / iCloud / EventKit: no integration in v0.1.** No permissions requested, no imports, no reads or writes to system reminders, and no modification of another app's data. There are no claimed “system deadlines” to sync: original dates here belong to this app only.
+- **Apple Reminders / iCloud / EventKit: no integration in v0.1.** The app requests no Reminders permission and does not read or write system reminders. An optional one-time local snapshot importer is provided below; it is not synchronization. There are no claimed “system deadlines” to sync: dates are stored locally, including unchanged original dates when explicitly imported.
 - **Notifications: not implemented in v0.1.** Setting a time only stores/displays that time; it does not schedule an alert or alarm.
 - This version has no task editing/deletion UI, recurring tasks, shared lists, history browser, search, cross-device sync, global hotkey, or edge-hover trigger. Click the right-edge handle or menu-bar control to open the side panel.
 - Failed reads preserve the existing file and disable saving for that run; save failures are surfaced in the panel. Back up the JSON before manual changes. Storage is local plaintext, not encrypted by the app; rely on your macOS account protections / FileVault as appropriate.
@@ -55,3 +55,19 @@ MIT license applies to this repository's original code. System fonts, emoji, and
 `swift test` covers urgency boundaries, custom emoji, daily carry-forward without date mutation, future/goal exclusion, completion behavior, checklist independence, draft/task serialization, and daylight-saving calendar arithmetic. `scripts/build-app.sh` compiles a release executable and packages a signed local `.app`. CI repeats tests and packaging on macOS.
 
 Automated tests are not a substitute for visual interaction testing. An authorized GUI pass verified the main screen, empty state, draft entry, calendar expansion, and draft collapse. The independently implemented right-edge handle was then visually verified: closing the panel leaves the handle visible, and clicking it reopens the Daily Todo panel. Manual acceptance checks remain: open/dismiss/reopen the panel, persist a draft across quit/relaunch, pick a month/year/date/time, and verify checklist clicks and scroll layout.
+
+## One-time local migration
+
+`scripts/import-reminders-snapshot.py` can copy an explicitly authorized, read-only Reminders JSON export into the local store while the app is stopped. It never calls Reminders, never updates/deletes source items, and skips already-imported source IDs. Keep exports and backups outside this repository.
+
+The export schema is a list of `{id, name, reminders}` groups. Each reminder contains `id`, `name`, `body`, `completed`, `dueDate`, `alldayDueDate`, and `containerId`; dates are ISO 8601 strings or null. Parent containers must match the list ID; unsupported or unknown nested relationships abort rather than silently flattening.
+
+The importer recognizes the data note `EdgeTodo-Section: daily`; under the explicitly confirmed migration convention, other items become goals. Original titles (including embedded emoji), completion flags, notes, IDs, and deadlines are retained. Missing deadlines stay missing and display “No deadline”, not an invented date. No independent custom-emoji metadata is inferred. The full source export should be retained to preserve fields not rendered by this app, such as alarms, priority, flags, and completion timestamps. No imported alarms are scheduled.
+
+```sh
+# Quit everydayFights first. Use an export you have permission to read.
+python3 scripts/import-reminders-snapshot.py /path/to/private-export.json \
+  --destination "$HOME/Library/Application Support/everydayFights/tasks.json"
+```
+
+A pre-import JSON backup is written in the destination's `migration` directory. To roll back, quit the app, preserve any newer local tasks, then restore that backup to `tasks.json`. Re-running the importer does not synchronize later source changes or overwrite existing local tasks.
