@@ -4,11 +4,11 @@ An original, local-first macOS menu-bar to-do app. Small steps. A little stronge
 
 从零实现的轻量侧边待办工具。SwiftUI + AppKit，无第三方依赖。
 
-> **v0.1 限制：本地 JSON 存储，不与 Apple 提醒事项/iCloud 同步，不发送系统通知。已完成编译和自动化模型测试，尚未进行 GUI 交互验收。**
+> **v0.1 限制：本地 JSON 存储，不与 Apple 提醒事项/iCloud 同步，不发送系统通知。已完成编译和自动化模型测试，主界面、空态、草稿输入、日历展开、侧边拉手展开/收起已做有限 GUI 检查，完整交互回归尚未完成。**
 
 ## Features / 功能
 
-- 点击菜单栏 `✓`，在当前屏幕右侧打开浮动面板；点击外部自动收起，不丢失草稿。
+- 点击屏幕右侧边缘的小拉手（或菜单栏 `✓`），打开右侧浮动面板；点击外部自动收起，不丢失草稿。
 - 默认 **Daily Todo**，空列表展示鼓励语。未完成日常任务在之后的日期继续显示，**不修改原截止日期**。历史完成项不滚入今天。
 - **Short-term Goal** 按截止日期升序显示倒计时：今日及逾期 🚨、明日 👿、2–7 天 🔥、8–30 天 🏃、31 天及以上 😌。自定义 emoji 优先。
 - 新任务支持标题、日期、Today、可选时间、自定义 emoji、多条独立勾选的小事项。
@@ -41,7 +41,7 @@ This initial release is source-first. The local app is ad-hoc signed, **not Deve
 - Completing a parent does not alter child completion flags, and vice versa. Completed goals can be revealed with “Show completed”. In Daily Todo, this switch only reveals completed tasks whose original deadline is today. A carried-forward task disappears after completion and cannot currently be reopened from the UI; a history browser is not implemented.
 - **Apple Reminders / iCloud / EventKit: no integration in v0.1.** No permissions requested, no imports, no reads or writes to system reminders, and no modification of another app's data. There are no claimed “system deadlines” to sync: original dates here belong to this app only.
 - **Notifications: not implemented in v0.1.** Setting a time only stores/displays that time; it does not schedule an alert or alarm.
-- This version has no task editing/deletion UI, recurring tasks, shared lists, history browser, search, cross-device sync, global hotkey, or edge-hover trigger. Use the menu-bar control to open the side panel.
+- This version has no task editing/deletion UI, recurring tasks, shared lists, history browser, search, cross-device sync, global hotkey, or edge-hover trigger. Click the right-edge handle or menu-bar control to open the side panel.
 - Failed reads preserve the existing file and disable saving for that run; save failures are surfaced in the panel. Back up the JSON before manual changes. Storage is local plaintext, not encrypted by the app; rely on your macOS account protections / FileVault as appropriate.
 
 ## Originality & privacy
@@ -54,4 +54,4 @@ MIT license applies to this repository's original code. System fonts, emoji, and
 
 `swift test` covers urgency boundaries, custom emoji, daily carry-forward without date mutation, future/goal exclusion, completion behavior, checklist independence, draft/task serialization, and daylight-saving calendar arithmetic. `scripts/build-app.sh` compiles a release executable and packages a signed local `.app`. CI repeats tests and packaging on macOS.
 
-Automated tests are not a substitute for visual interaction testing. The first implementation was compiled and tested without opening a GUI or moving the owner's mouse. Manual acceptance checks remain: open/dismiss/reopen the panel, persist a draft across quit/relaunch, pick a month/year/date/time, and verify checklist clicks and scroll layout.
+Automated tests are not a substitute for visual interaction testing. An authorized GUI pass verified the main screen, empty state, draft entry, calendar expansion, and draft collapse. The independently implemented right-edge handle was then visually verified: closing the panel leaves the handle visible, and clicking it reopens the Daily Todo panel. Manual acceptance checks remain: open/dismiss/reopen the panel, persist a draft across quit/relaunch, pick a month/year/date/time, and verify checklist clicks and scroll layout.

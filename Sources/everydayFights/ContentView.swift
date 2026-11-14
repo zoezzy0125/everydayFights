@@ -39,7 +39,7 @@ struct ContentView: View {
                 }
                 Toggle("Show completed", isOn: $showCompleted).font(.caption)
                 if composing {
-                    ScrollView { Composer(draft: $store.draft) { store.add(); composing = false } }.frame(maxHeight: 440)
+                    ScrollView { Composer(draft: $store.draft) { store.add(); composing = false } }.frame(minHeight: 300, maxHeight: 440)
                     Button("Keep draft & collapse") { composing = false }.font(.caption)
                 } else {
                     Button {
