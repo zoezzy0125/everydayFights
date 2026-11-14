@@ -1,0 +1,62 @@
+import Foundation
+@main struct HierarchyTests {
+ static func main() {
+    let day = Date(timeIntervalSince1970: 1700000000)
+    func n(_ id: String, _ parent: String? = nil, daily: Bool = false, done: Bool = false, due: Date? = nil, created: Date? = nil, completedAt: Date? = nil) -> TaskHierarchy.Node {
+        .init(id: id, parentID: parent, title: "Synthetic " + id, daily: daily, completed: done, due: due, created: created, completedAt: completedAt)
+    }
+    let tree = TaskHierarchy(nodes: [n("goal"), n("paper","goal"), n("review","paper",daily:true,due:day), n("daily",daily:true,due:day), n("other")])
+    assert(tree.depth(of:"goal") == 1)
+    assert(tree.depth(of:"paper") == 2)
+    assert(tree.depth(of:"review") == 3)
+    assert(tree.canAddChild(to:"goal") && tree.canAddChild(to:"paper"))
+    assert(!tree.canAddChild(to:"review"))
+    assert(tree.violation(moving:"daily",to:"goal") == nil)
+    assert(tree.violation(moving:"daily",to:"paper") == nil)
+    assert(tree.violation(moving:"daily",to:"review") == .tooDeep)
+    assert(tree.violation(moving:"goal",to:"goal") == .cycle)
+    assert(tree.violation(moving:"goal",to:"review") == .cycle)
+    assert(tree.violation(moving:"paper",to:"review") == .cycle)
+    assert(tree.violation(moving:"goal",to:"other") == .tooDeep) // includes whole subtree
+    assert(tree.violation(moving:"paper",to:"other") == nil)
+    assert(tree.violation(moving:"daily",to:"missing") == .missing)
+    assert(tree.violation(moving:"daily",to:nil) == nil)
+    assert(tree.dailyHistory(of:"goal").map(\.id) == ["review"])
+    assert(tree.goalIDs() == Set(["goal","paper","review","other"]))
+    assert(tree.ordered(Set(["goal","paper","review"])).map(\.1) == [0,1,2])
+    let linked = TaskHierarchy(nodes:[n("goal"), n("daily","goal",daily:true,due:day)])
+    assert(linked.goalIDs().contains("daily"))
+    assert(linked.dailyHistory(of:"goal").first?.due == day)
+    let done = TaskHierarchy(nodes:[n("goal",done:true), n("daily","goal",daily:true,done:true,due:day)])
+    assert(done.goalIDs().isEmpty)
+    assert(done.goalIDs(includeCompleted:true) == Set(["goal","daily"]))
+    assert(done.dailyHistory(of:"goal").count == 1)
+    let pendingChild = TaskHierarchy(nodes:[n("goal",done:true),n("daily","goal",daily:true)])
+    assert(pendingChild.goalIDs() == Set(["goal","daily"]))
+    let bad = TaskHierarchy(nodes:[n("a","b"),n("b","a"),n("new")])
+    assert(bad.depth(of:"a") == nil && !bad.canAddChild(to:"a"))
+    assert(bad.ordered(Set(["a","b"])).count == 2)
+    assert(bad.violation(moving:"a",to:nil) == nil)
+    assert(bad.violation(moving:"new",to:"a") == .cycle)
+    let orphan = TaskHierarchy(nodes:[n("a","missing")])
+    assert(!orphan.canAddChild(to:"a"))
+    assert(orphan.ordered(Set(["a"])).count == 1)
+    let notes = "Private note unchanged\nEdgeTodo-Emoji: 🎓\nEdgeTodo-Section: daily\nEdgeTodo-Parent: old\nOther note"
+    let relinked = TaskHierarchy.replacingParent(in:notes,with:"new")!
+    assert(relinked.contains("Private note unchanged") && relinked.contains("Other note"))
+    assert(relinked.contains("EdgeTodo-Emoji: 🎓") && relinked.contains("EdgeTodo-Section: daily"))
+    assert(!relinked.contains("EdgeTodo-Parent: old") && relinked.contains("EdgeTodo-Parent: new"))
+    let unlinked = TaskHierarchy.replacingParent(in:relinked,with:nil)!
+    assert(!unlinked.contains("EdgeTodo-Parent:"))
+    assert(TaskHierarchy.replacingParent(in:unlinked,with:nil) == unlinked)
+    assert(TaskHierarchy.replacingParent(in:nil,with:nil) == nil)
+    let history = TaskHistoryText.render([n("done","goal",daily:true,done:true,due:day),n("pending","goal",daily:true,due:day),n("actual","goal",daily:true,done:true,due:day,completedAt:day.addingTimeInterval(86400))],english:true)
+    assert(history.contains("time not recorded"))
+    assert(history.contains("Pending"))
+    assert(history.contains("Completed:"))
+    assert(!history.contains("Overdue"))
+    assert(TaskHistoryText.render([n("noDate",daily:true)],english:true).contains("Date unknown"))
+    assert(TaskHistoryText.render([],english:true).contains("No linked"))
+    print("PASS: 42 hierarchy, relationship, dual-view and truthful history checks; synthetic only")
+ }
+}

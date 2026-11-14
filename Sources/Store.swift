@@ -19,6 +19,10 @@ struct TodoItem: Identifiable, Equatable {
         let prefix = "EdgeTodo-Parent: "
         return reminder.notes?.components(separatedBy: "\n").first(where: { $0.hasPrefix(prefix) }).map { String($0.dropFirst(prefix.count)) }
     }
+    var treeNode: TaskHierarchy.Node {
+        .init(id: id, parentID: parentID, title: title, daily: isDaily, completed: isCompleted,
+              due: due, created: reminder.creationDate, completedAt: reminder.completionDate)
+    }
     var title: String { reminder.title ?? L10n.t("（无标题）", "(No title)") }
     var isCompleted: Bool { reminder.isCompleted }
 
@@ -179,10 +183,37 @@ final class TodoStore {
         onChange?()
     }
 
+    var hierarchy: TaskHierarchy { TaskHierarchy(nodes: allItems.map(\.treeNode)) }
+
+    @discardableResult
+    func link(_ item: TodoItem, to parent: TodoItem?) -> Bool {
+        guard allItems.contains(where: { $0.id == item.id }),
+              parent == nil || allItems.contains(where: { $0.id == parent!.id }),
+              parent == nil || parent!.reminder.calendar.calendarIdentifier == item.reminder.calendar.calendarIdentifier else {
+            lastError = L10n.t("只能关联当前同一提醒列表中的任务。", "Choose a task from the same Reminders list.")
+            notify(); return false
+        }
+        if let problem = hierarchy.violation(moving: item.id, to: parent?.id) {
+            lastError = problem == .tooDeep
+                ? L10n.t("最多三级，移动整个子树也不能超过三级。", "Maximum three levels, including the entire moved subtree.")
+                : L10n.t("不能关联自身、后代或无效任务。", "Cannot link to self, a descendant, or an invalid task.")
+            notify(); return false
+        }
+        let oldNotes = item.reminder.notes
+        item.reminder.notes = TaskHierarchy.replacingParent(in: oldNotes, with: parent?.id)
+        do {
+            try ek.save(item.reminder, commit: true)
+            lastError = nil; reload(); return true
+        } catch {
+            item.reminder.notes = oldNotes
+            lastError = error.localizedDescription; notify(); return false
+        }
+    }
+
     // MARK: 写入
 
     @discardableResult
-    func add(title: String, due: Date?, parent: TodoItem? = nil, daily: Bool = false) -> Bool {
+    func add(title: String, due: Date?, parent: TodoItem? = nil, daily: Bool? = nil) -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         guard let cal = selectedList else {
@@ -193,13 +224,17 @@ final class TodoStore {
             notify()
             return false
         }
+        if let parent, !hierarchy.canAddChild(to: parent.id) {
+            lastError = L10n.t("最多三级，不能在第三级任务下继续添加。", "Maximum three levels; this task cannot have another child.")
+            notify(); return false
+        }
         let r = EKReminder(eventStore: ek)
         r.title = trimmed
         r.calendar = parent?.reminder.calendar ?? cal
         if let parent {
             r.notes = "EdgeTodo-Parent: \(parent.id)\n" + L10n.t("所属事项：", "Parent task: ") + parent.title
         }
-        if parent?.isDaily ?? daily {
+        if daily ?? parent?.isDaily ?? false {
             r.notes = (r.notes.map { $0 + "\n" } ?? "") + "EdgeTodo-Section: daily"
         }
         if let due = due { Self.applyDue(r, due) }

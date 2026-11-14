@@ -437,6 +437,7 @@ final class PanelController: NSObject, NSTextFieldDelegate {
     private let sectionPicker = NSSegmentedControl(labels: ["Daily Todo", "Short-term Goal"], trackingMode: .selectOne, target: nil, action: nil)
     private var dailySection = true
     private var showDailyHistory = false
+    private var showGoalHistory = false
     private var emptyView: NSView!
     private var permissionView: NSView!
 
@@ -447,6 +448,7 @@ final class PanelController: NSObject, NSTextFieldDelegate {
     private var draftDatePicker: CompactCalendar?
     private var draftTimePicker: NSDatePicker?
     private var draftParent: TodoItem?
+    private var draftDailyOverride: Bool?
     private var draftDateIsManual = false
     private var countdownTimer: Timer?
 
@@ -714,17 +716,19 @@ final class PanelController: NSObject, NSTextFieldDelegate {
         root.window?.makeFirstResponder(draftField)
     }
 
-    private func startSubtask(_ parent: TodoItem) {
+    private func startSubtask(_ parent: TodoItem, asDaily: Bool = false) {
         // Never replace an existing unsaved task.
         if let text = draftField?.stringValue, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             NSSound.beep()
             root.window?.makeFirstResponder(draftField)
             return
         }
+        guard store.hierarchy.canAddChild(to: parent.id) else { NSSound.beep(); return }
         draftParent = parent
+        draftDailyOverride = asDaily ? true : parent.isDaily
         startDraft()
         draftField?.placeholderString = L10n.t("添加小事项 · ", "Subtask · ") + parent.title
-        if let date = parent.due {
+        if let date = asDaily ? Date() : parent.due {
             draftDatePicker?.dateValue = date
             draftTimePicker?.dateValue = date
         }
@@ -748,6 +752,7 @@ final class PanelController: NSObject, NSTextFieldDelegate {
         draftDatePicker = nil
         draftTimePicker = nil
         draftParent = nil
+        draftDailyOverride = nil
         draftDateIsManual = false
         refresh()
         onBusyChange?(editorOverlay != nil)
@@ -873,13 +878,13 @@ final class PanelController: NSObject, NSTextFieldDelegate {
                 let hm = cal.dateComponents([.hour, .minute], from: time)
                 due = cal.date(bySettingHour: hm.hour ?? 0, minute: hm.minute ?? 0, second: 0, of: day)
             } else { due = parsed.due }
-            guard store.add(title: parsed.title, due: due, parent: draftParent, daily: dailySection) else {
+            guard store.add(title: parsed.title, due: due, parent: draftParent, daily: draftDailyOverride ?? draftParent?.isDaily ?? dailySection) else {
                 refresh()
                 return // keep the user's draft if Reminders rejects the write
             }
             field.stringValue = ""
             draftDateIsManual = false
-            let next = draftParent?.due ?? (dailySection && !Calendar.current.isDateInToday(nextHour()) ? Date() : nextHour())
+            let next = draftDailyOverride == true ? Date() : draftParent?.due ?? (dailySection && !Calendar.current.isDateInToday(nextHour()) ? Date() : nextHour())
             draftDatePicker?.dateValue = next
             draftTimePicker?.dateValue = next
             refreshDraft()
@@ -906,6 +911,7 @@ final class PanelController: NSObject, NSTextFieldDelegate {
         refresh()
     }
     @objc private func historyTapped() { showDailyHistory.toggle(); refresh() }
+    @objc private func goalHistoryTapped() { showGoalHistory.toggle(); refresh() }
     private func buildContent() {
         sectionPicker.selectedSegment = 0
         sectionPicker.target = self
@@ -1164,26 +1170,29 @@ final class PanelController: NSObject, NSTextFieldDelegate {
                 let history = NSButton(title: showDailyHistory ? L10n.t("回到今日", "Back to today") : L10n.t("历史与计划", "History & plans"), target: self, action: #selector(historyTapped))
                 history.bezelStyle = .rounded
                 rowsStack.addArrangedSubview(history)
-            } else { displayItems = store.items.filter { !$0.isDaily } }
+            } else {
+                let ids = store.hierarchy.goalIDs(includeCompleted: showGoalHistory)
+                let pool = store.items + store.allItems.filter { $0.isCompleted }
+                displayItems = pool.filter { ids.contains($0.id) }
+                let history = NSButton(title: showGoalHistory
+                    ? L10n.t("回到未完成目标", "Back to active goals")
+                    : L10n.t("历史 · 包括已完成目标", "History · include completed goals"), target: self, action: #selector(goalHistoryTapped))
+                history.bezelStyle = .rounded
+                rowsStack.addArrangedSubview(history)
+            }
         }
         countLabel.stringValue = displayItems.isEmpty ? "" : String(displayItems.count)
-        // Group compatible child reminders without changing their data or deadlines.
-        let ids = Set(displayItems.map { $0.id })
-        let roots = displayItems.filter { $0.parentID == nil || !ids.contains($0.parentID!) }
-        var ordered: [TodoItem] = []
-        var seen = Set<String>()
-        func appendTree(_ item: TodoItem) {
-            guard seen.insert(item.id).inserted else { return }
-            ordered.append(item)
-            for child in displayItems where child.parentID == item.id { appendTree(child) }
-        }
-        roots.forEach(appendTree)
-        displayItems.forEach(appendTree)
-        for item in ordered {
-            let row = TodoRowView(item: item)
+        // Resolve structure only after filtering; shared Daily rows keep the same reminder ID.
+        let visibleTree = TaskHierarchy(nodes: displayItems.map(\.treeNode))
+        let map = Dictionary(displayItems.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        for (id, indent) in visibleTree.ordered(Set(map.keys)) {
+            guard let item = map[id] else { continue }
+            let path = store.hierarchy.ancestors(of: id)?.reversed().map(\.title).joined(separator: " › ") ?? ""
+            let row = TodoRowView(item: item, indent: indent, parentPath: path, hierarchy: store.hierarchy, availableTasks: store.allItems, lists: store.lists)
             if !demoMode {
                 row.onToggle = item.isCompleted ? nil : { [weak self] in self?.store.complete(item) }
                 row.onAddSubtask = { [weak self] in self?.startSubtask(item) }
+                row.onAddDaily = { [weak self] in self?.startSubtask(item, asDaily: true) }
             }
             row.onRemind = { [weak self] in self?.beginEdit(item) }
             row.translatesAutoresizingMaskIntoConstraints = false
@@ -1195,7 +1204,7 @@ final class PanelController: NSObject, NSTextFieldDelegate {
         let previewPermission = UserDefaults.standard.bool(forKey: "forcePermission")
         let showPermission = (!store.authGranted || previewPermission) && !demoMode
         // 有草稿行时不显示空状态，否则输入行会被盖住
-        let showEmpty = !dailySection && store.authGranted && displayItems.isEmpty && !demoMode && draftRow == nil
+        let showEmpty = !dailySection && store.authGranted && displayItems.isEmpty && store.hierarchy.goalIDs(includeCompleted: true).isEmpty && !demoMode && draftRow == nil
         permissionView.isHidden = !showPermission
         permissionShown = showPermission
         updateMicVisibility()
@@ -1500,6 +1509,7 @@ final class TodoRowView: NSView {
     var onToggle: (() -> Void)?
     var onRemind: (() -> Void)?
     var onAddSubtask: (() -> Void)?
+    var onAddDaily: (() -> Void)?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -1513,7 +1523,7 @@ final class TodoRowView: NSView {
     private var trackingRef: NSTrackingArea?
     private var hovering = false
 
-    init(item: TodoItem) {
+    init(item: TodoItem, indent: Int = 0, parentPath: String = "", hierarchy: TaskHierarchy, availableTasks: [TodoItem], lists: [EKCalendar]) {
         self.item = item
         super.init(frame: .zero)
         wantsLayer = true
@@ -1598,7 +1608,7 @@ final class TodoRowView: NSView {
         addSubview(bell)
 
         NSLayoutConstraint.activate([
-            circle.leadingAnchor.constraint(equalTo: leadingAnchor, constant: item.parentID == nil ? 10 : 28),
+            circle.leadingAnchor.constraint(equalTo: leadingAnchor, constant: CGFloat(10 + min(indent, 2) * 18)),
             circle.topAnchor.constraint(equalTo: topAnchor, constant: 9),
             circle.widthAnchor.constraint(equalToConstant: 15),
             circle.heightAnchor.constraint(equalToConstant: 15),
@@ -1619,14 +1629,34 @@ final class TodoRowView: NSView {
             bell.heightAnchor.constraint(equalToConstant: 14)
         ])
 
-        self.menu = buildMenu()
+        if !parentPath.isEmpty {
+            titleLabel.toolTip = L10n.t("归属：", "Belongs to: ") + parentPath
+            let label = NSTextField(labelWithString: "↳ " + parentPath)
+            label.font = .systemFont(ofSize: 10)
+            label.textColor = .secondaryLabelColor
+            label.lineBreakMode = .byTruncatingMiddle
+            label.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(label)
+            // Add a separate, readable breadcrumb without changing the saved title.
+            for c in constraints where (c.firstItem as? NSView) === dueChip && c.firstAttribute == .bottom {
+                c.isActive = false
+            }
+            NSLayoutConstraint.activate([
+                label.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+                label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+                label.topAnchor.constraint(equalTo: dueChip.bottomAnchor, constant: 2),
+                label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6)
+            ])
+        }
+        self.menu = buildMenu(hierarchy: hierarchy, availableTasks: availableTasks, lists: lists)
         for sub in [titleLabel, dueChip, dueLabel] { sub.menu = self.menu }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    private func buildMenu() -> NSMenu {
+    private func buildMenu(hierarchy: TaskHierarchy, availableTasks: [TodoItem], lists: [EKCalendar]) -> NSMenu {
         let menu = NSMenu()
+        menu.autoenablesItems = false
         let emojiMenu = NSMenu()
         for emoji in ["📄", "🎓", "💻", "🧠", "💪", "🏡", "🌱", "⭐️", "🎯", "❤️"] {
             let option = NSMenuItem(title: emoji, action: #selector(chooseEmoji(_:)), keyEquivalent: "")
@@ -1642,7 +1672,29 @@ final class TodoRowView: NSView {
         section.target = self; menu.addItem(section)
         let subtask = NSMenuItem(title: L10n.t("添加小事项…", "Add Subtask…"), action: #selector(addSubtask), keyEquivalent: "")
         subtask.target = self
+        subtask.isEnabled = hierarchy.canAddChild(to: item.id)
         menu.addItem(subtask)
+        let dailyChild = NSMenuItem(title: L10n.t("添加 Daily 小事项…", "Add Daily Task…"), action: #selector(addDaily), keyEquivalent: "")
+        dailyChild.target = self; dailyChild.isEnabled = subtask.isEnabled; menu.addItem(dailyChild)
+        let linkMenu = NSMenu()
+        for parent in availableTasks.sorted(by: { $0.title.localizedStandardCompare($1.title) == .orderedAscending }) {
+            guard hierarchy.violation(moving: item.id, to: parent.id) == nil else { continue }
+            let path = (hierarchy.ancestors(of: parent.id) ?? []).reversed().map(\.title) + [parent.title]
+            let option = NSMenuItem(title: path.joined(separator: " › "), action: #selector(linkParent(_:)), keyEquivalent: "")
+            option.target = self; option.representedObject = parent.id
+            option.state = item.parentID == parent.id ? .on : .off
+            linkMenu.addItem(option)
+        }
+        if linkMenu.items.isEmpty {
+            let none = NSMenuItem(title: L10n.t("没有可关联的任务（最多三级）", "No eligible task (maximum 3 levels)"), action: nil, keyEquivalent: "")
+            none.isEnabled = false; linkMenu.addItem(none)
+        }
+        let link = NSMenuItem(title: L10n.t("关联到大事项…", "Link to Task…"), action: nil, keyEquivalent: "")
+        link.submenu = linkMenu; menu.addItem(link)
+        let unlink = NSMenuItem(title: L10n.t("解除归属", "Unlink from Parent"), action: #selector(unlinkParent), keyEquivalent: "")
+        unlink.target = self; unlink.isEnabled = item.parentID != nil; menu.addItem(unlink)
+        let history = NSMenuItem(title: L10n.t("Daily 历史记录…", "Daily History…"), action: #selector(showDailyHistory), keyEquivalent: "")
+        history.target = self; menu.addItem(history)
         let remindItem = NSMenuItem(title: L10n.t("设置提醒…", "Set Reminder…"), action: #selector(remind), keyEquivalent: "")
         remindItem.target = self
         menu.addItem(remindItem)
@@ -1654,7 +1706,7 @@ final class TodoRowView: NSView {
 
         let move = NSMenuItem(title: L10n.t("移动到", "Move to"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
-        for list in TodoStore.shared.lists {
+        for list in lists {
             let mi = NSMenuItem(title: list.title, action: #selector(moveToList(_:)), keyEquivalent: "")
             mi.target = self
             mi.representedObject = list.calendarIdentifier
@@ -1724,6 +1776,40 @@ final class TodoRowView: NSView {
     }
     @objc private func changeSection() { TodoStore.shared.setMetadata(item, key: "Section", value: item.isDaily ? nil : "daily") }
     @objc private func addSubtask() { onAddSubtask?() }
+    @objc private func addDaily() { onAddDaily?() }
+    @objc private func linkParent(_ sender: NSMenuItem) {
+        let store = TodoStore.shared
+        guard let id = sender.representedObject as? String, let parent = store.allItems.first(where: { $0.id == id }) else { return }
+        if !store.link(item, to: parent) { showLinkError() }
+    }
+    @objc private func unlinkParent() {
+        if !TodoStore.shared.link(item, to: nil) { showLinkError() }
+    }
+    private func showLinkError() {
+        let alert = NSAlert()
+        alert.messageText = L10n.t("未能更改归属", "Could not change parent")
+        alert.informativeText = TodoStore.shared.lastError ?? ""
+        alert.runModal()
+    }
+    @objc private func showDailyHistory() {
+        let nodes = TodoStore.shared.hierarchy.dailyHistory(of: item.id)
+        let alert = NSAlert()
+        alert.messageText = L10n.t("Daily 历史 · ", "Daily history · ") + item.title
+        alert.informativeText = L10n.t("按原任务日期分组，包含所有下级 Daily。未完成不代表已经做过；完成时间仅来自实际记录。", "Grouped by original task date, including descendant Daily tasks. Pending is not a work log; completion times come only from recorded data.")
+        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 450, height: 300))
+        scroll.hasVerticalScroller = true; scroll.borderType = .bezelBorder
+        let text = NSTextView(frame: scroll.bounds)
+        text.isEditable = false; text.isSelectable = true
+        text.font = .systemFont(ofSize: 12)
+        text.textContainerInset = NSSize(width: 8, height: 8)
+        text.autoresizingMask = [.width]
+        text.textContainer?.widthTracksTextView = true
+        text.string = TaskHistoryText.render(nodes, english: L10n.isEnglish)
+        scroll.documentView = text
+        alert.accessoryView = scroll
+        alert.addButton(withTitle: L10n.t("关闭", "Close"))
+        alert.runModal()
+    }
     @objc private func toggle() { onToggle?() }
     @objc private func remind() { onRemind?() }
 
