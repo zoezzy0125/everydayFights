@@ -1,73 +1,100 @@
 # everydayFights
 
-An original, local-first macOS menu-bar to-do app. Small steps. A little stronger.
+把每天的小事，一件件打败。☀️
 
-从零实现的轻量侧边待办工具。SwiftUI + AppKit，无第三方依赖。
+**everydayFights 是一个轻量的 macOS 桌面侧边待办小工具**：不是浏览器插件，也不是 iPhone App。平时隐藏在屏幕边缘，唤出后可以安排今天的任务、追踪短期目标、查看截止倒计时。
 
-> **v0.1 限制：本地 JSON 存储，不与 Apple 提醒事项/iCloud 同步，不发送系统通知。已完成编译和自动化模型测试，主界面、空态、草稿输入、日历展开、侧边拉手展开/收起已做有限 GUI 检查，完整交互回归尚未完成。**
+> 当前发布的是基于 EdgeTodo v1.3.2 的系统提醒事项定制版 `1.3.2-local.7`，不是本仓库早期的独立 JSON 存储实现。旧提交保留供历史查阅。
 
-## Features / 功能
+## 功能
 
-- 点击屏幕右侧边缘的小拉手（或菜单栏 `✓`），打开右侧浮动面板；点击外部自动收起，不丢失草稿。
-- 默认 **Daily Todo**，空列表展示鼓励语。未完成日常任务在之后的日期继续显示，**不修改原截止日期**。历史完成项不滚入今天。
-- **Short-term Goal** 按截止日期升序显示倒计时：今日及逾期 🚨、明日 👿、2–7 天 🔥、8–30 天 🏃、31 天及以上 😌。自定义 emoji 优先。
-- 新任务支持标题、日期、Today、可选时间、自定义 emoji、多条独立勾选的小事项。
-- 点击日历按钮展开公历日期网格，可直接选月份、年份，再点具体日期。时间和日期本身不是系统通知。
-- 草稿和任务即时原子写入本地 JSON；关闭面板、退出应用、重新启动后仍保留。
+- **Daily Todo**：打开默认进入今日清单，空白日有简短鼓励语。
+- **自动顺延**：昨天及更早未完成的 Daily 自动显示在今天，直到完成。不复制任务，也不显示逾期标签。
+- **Short-term Goal**：适合论文、项目、旅行等需要截止日期的目标；原有提醒事项默认在这里。
+- **可点选日历**：直接选年、月、日，单独填写时间，点 Today 回到今天。
+- **截止倒计时**：按本地日历天数计算，不是简单除以 24 小时。
+- **紧迫表情**：短期目标超过 30 天 😌、8–30 天 🏃、2–7 天 🔥、今天或明天 👿、已到期 🚨；今日 Daily 用 🚨。
+- **自选 emoji**：给工作、论文、生活任务选一个自己的图标，与紧迫表情并排显示。
+- **小事项**：大目标下添加可独立勾选的小事项，默认继承父事项日期，也可单独设置。
+- **随用随收**：点击界面外收起面板，未保存的草稿会保留。
+- **系统提醒事项**：直接使用 macOS Reminders；无需另注册账号。
 
-## Build / 编译安装
+## 系统要求
 
-Requires macOS 13+, Xcode 15+ or a compatible Swift 5.9+ macOS toolchain.
+- macOS 13 或更新版本。
+- 当前构建脚本面向 Apple Silicon（M 系列芯片）；尚未验证 Intel Mac。
+- 允许读取和修改系统“提醒事项”。语音输入是可选功能，另需麦克风与语音识别权限。
 
-```sh
+## 安装与首次使用
+
+当前提供源码构建方式，尚未提供这个版本的预编译安装包。请按下面的“本地构建”步骤生成应用，再手动安装。
+
+**仓库名是 everydayFights；为保持既有设置兼容，应用包仍叫 `EdgeTodo.app`，显示名为“侧边待办”或 EdgeTodo，bundle ID 为 `com.tangbonze.edgetodo`。不要同时运行上游版和本定制版。**
+
+应用通常在菜单栏和屏幕侧边显示，不在 Dock 中常驻。首次打开请允许提醒事项访问；若之前拒绝，可到“系统设置 → 隐私与安全性 → 提醒事项”重新开启。
+
+本地构建采用 ad-hoc 签名，尚未经过 Apple 公证。只运行你信任的来源；不要关闭 Gatekeeper 或批量移除隔离属性。系统阻止启动时，先确认来源，再按 macOS 提供的安全流程处理。重新编译可能触发再次授权。
+
+## 怎么用
+
+### 1. 打开清单
+
+将鼠标移到屏幕边缘的灰色拉手，或按 **⌥ Option + ⌘ Command + T**。默认打开 Daily Todo；已有草稿时保留草稿所属分区。
+
+### 2. 新建任务
+
+在当前分区进入输入行，填写任务内容、选择日历日期及时间，点击 **Add** 或按回车保存。日期顶部可以直接改月份和年份，**Today** 选中今天并保留时间。设置日期时间时也会为系统提醒事项设置对应提醒。
+
+### 3. 查看与完成 Daily
+
+今日 Daily 显示 🚨。过去未完成的任务自动带入今天，并标注原日期；已完成的和未来计划可通过 **History & plans** 查看。点击任务左侧圆圈完成任务。
+
+**顺延是本工具的展示行为，不会改系统提醒事项的原截止时间或闹钟，也不会每天重新通知。** 在苹果提醒事项 App 中仍可能看到原截止日期。
+
+### 4. 管理短期目标
+
+切换到 **Short-term Goal** 查看截止倒计时。任务按截止时间从早到晚排列，无日期的放后面。右键任务可编辑提醒日期，或选择 **Move to Daily Todo / Move to Short-term Goal** 改分区。
+
+### 5. 自选图标
+
+右键任务 → **Task emoji** → 选择预设，或 **Custom…** 输入自己的 emoji。自选图标与自动紧迫图标并列，不会替代截止提醒。
+
+### 6. 添加小事项
+
+右键大事项 → **Add Subtask…**，填写子任务并保存。可连续添加多个；每个都能独立完成。父任务完成不会自动完成所有子任务。按 Esc 退出子任务输入。
+
+## 数据、隐私与兼容性
+
+- 内容存放在系统提醒事项中。是否跨设备同步取决于你所选列表对应的账号及 iCloud 设置。
+- Daily 分类、自选 emoji、父子归属使用提醒事项备注中的 `EdgeTodo-Section`、`EdgeTodo-Emoji`、`EdgeTodo-Parent` 标记；保留普通备注文字，请勿手动删除这些标记，除非想取消对应关系。
+- **子任务是兼容分组，不是苹果原生子任务**：本工具里缩进展示，在苹果提醒事项 App 中为独立事项。父子关联依赖当前 Mac 的提醒标识，不保证另一台 Mac 同样自动分组。
+- 不将你的真实任务、截图、账号信息或本地数据库放进此代码仓库。
+- 语音功能沿用上游实现；支持本地识别时启用本地识别要求，不能承诺所有系统条件下都离线。无需语音时不授予相关权限即可。
+
+## 本地构建（开发者）
+
+需要 Xcode Command Line Tools 和 Apple Silicon Mac。先下载本仓库：
+
+```bash
 git clone https://github.com/zoezzy0125/everydayFights.git
 cd everydayFights
-swift test
-./scripts/build-app.sh
+./scripts/test.sh
+./build.sh
+# 输出 dist/EdgeTodo.app
+./package.sh
+# 输出 DMG
 ```
 
-结果为 `dist/everydayFights.app`，手动复制到 Applications，然后双击运行。应用没有 Dock 图标，通过菜单栏 `✓` 打开；面板右上角菜单可退出。构建脚本不会启动、安装应用或读取任何真实事项。
+不需要安装第三方包。构建完成后，先退出正在运行的 EdgeTodo，再将 `dist/EdgeTodo.app` 拷贝到“应用程序”。构建脚本本身不会安装、启动应用或读取你的真实事项；测试只使用合成对象，不保存系统提醒。重新签名后可能需要再次授权提醒事项。
 
-If running inside a restricted automation sandbox that prevents SwiftPM's nested sandbox, use `swift test --disable-sandbox` and `./scripts/build-app.sh --disable-sandbox`. This flag affects the build process, not system security settings.
+## 验证状态
 
-This initial release is source-first. The local app is ad-hoc signed, **not Developer ID signed or notarized**, and not a universal binary. It targets the architecture of the build Mac. No installer, auto-updater, or login-item registration is included.
+本地定制版通过编译以及 35 项逻辑检查，涵盖倒计时、紧迫度、跨午夜、Daily 顺延、分类/emoji 与子事项备注解析。部分完整界面操作（例如子事项实际保存后重启恢复）尚未完成端到端验证。首次使用请先用不重要的任务熟悉流程。
 
-## Data model & compatibility / 数据与兼容性
+## 致谢与许可
 
-- `FightTask`: UUID, title, custom emoji, daily/goal kind, original deadline, optional-time flag, completion flag, independent checklist items.
-- `Draft`: persistent new-task editor fields, including one checklist item per line.
-- Versioned `Snapshot` stores both in `~/Library/Application Support/everydayFights/tasks.json`.
-- Daily carry-forward is a **view predicate**, not a deadline rewrite. Countdown uses local calendar days rather than 24-hour intervals. The interface refreshes every 30 seconds while visible.
-- Completing a parent does not alter child completion flags, and vice versa. Completed goals can be revealed with “Show completed”. In Daily Todo, this switch only reveals completed tasks whose original deadline is today. A carried-forward task disappears after completion and cannot currently be reopened from the UI; a history browser is not implemented.
-- **Apple Reminders / iCloud / EventKit: no integration in v0.1.** The app requests no Reminders permission and does not read or write system reminders. An optional one-time local snapshot importer is provided below; it is not synchronization. There are no claimed “system deadlines” to sync: dates are stored locally, including unchanged original dates when explicitly imported.
-- **Notifications: not implemented in v0.1.** Setting a time only stores/displays that time; it does not schedule an alert or alarm.
-- This version has no task editing/deletion UI, recurring tasks, shared lists, history browser, search, cross-device sync, global hotkey, or edge-hover trigger. Click the right-edge handle or menu-bar control to open the side panel.
-- Failed reads preserve the existing file and disable saving for that run; save failures are surfaced in the panel. Back up the JSON before manual changes. Storage is local plaintext, not encrypted by the app; rely on your macOS account protections / FileVault as appropriate.
+基于 [tangbonze/EdgeTodo](https://github.com/tangbonze/EdgeTodo) v1.3.2 修改。感谢原作者的侧边面板、系统提醒事项集成、日期解析和语音输入实现。
 
-## Originality & privacy
+本仓库维护者已确认获得原作者对此定制版本发布的许可。上游仓库未附通用开源许可证；这项许可不应被解读为向所有人授予 MIT 或其他开源许可。原作者保留其代码及资源的权利。需要进一步复制、修改、再分发或商业使用时，请向相应权利人确认授权范围。
 
-All implementation and layout were written independently from the feature specification. No EdgeTodo source, assets, implementation, or repository history was consulted or copied. Icons are text emoji/system symbols rendered by macOS; there are no bundled third-party image assets. No analytics, network client, external dependencies, credentials, user data, or private task samples are included.
-
-MIT license applies to this repository's original code. System fonts, emoji, and symbols are supplied by macOS under Apple's terms and are not redistributed here.
-
-## Validation
-
-`swift test` covers urgency boundaries, custom emoji, daily carry-forward without date mutation, future/goal exclusion, completion behavior, checklist independence, draft/task serialization, and daylight-saving calendar arithmetic. `scripts/build-app.sh` compiles a release executable and packages a signed local `.app`. CI repeats tests and packaging on macOS.
-
-Automated tests are not a substitute for visual interaction testing. An authorized GUI pass verified the main screen, empty state, draft entry, calendar expansion, and draft collapse. The independently implemented right-edge handle was then visually verified: closing the panel leaves the handle visible, and clicking it reopens the Daily Todo panel. Manual acceptance checks remain: open/dismiss/reopen the panel, persist a draft across quit/relaunch, pick a month/year/date/time, and verify checklist clicks and scroll layout.
-
-## One-time local migration
-
-`scripts/import-reminders-snapshot.py` can copy an explicitly authorized, read-only Reminders JSON export into the local store while the app is stopped. It never calls Reminders, never updates/deletes source items, and skips already-imported source IDs. Keep exports and backups outside this repository.
-
-The export schema is a list of `{id, name, reminders}` groups. Each reminder contains `id`, `name`, `body`, `completed`, `dueDate`, `alldayDueDate`, and `containerId`; dates are ISO 8601 strings or null. Parent containers must match the list ID; unsupported or unknown nested relationships abort rather than silently flattening.
-
-The importer recognizes the data note `EdgeTodo-Section: daily`; under the explicitly confirmed migration convention, other items become goals. Original titles (including embedded emoji), completion flags, notes, IDs, and deadlines are retained. Missing deadlines stay missing and display “No deadline”, not an invented date. No independent custom-emoji metadata is inferred. The full source export should be retained to preserve fields not rendered by this app, such as alarms, priority, flags, and completion timestamps. No imported alarms are scheduled.
-
-```sh
-# Quit everydayFights first. Use an export you have permission to read.
-python3 scripts/import-reminders-snapshot.py /path/to/private-export.json \
-  --destination "$HOME/Library/Application Support/everydayFights/tasks.json"
-```
-
-A pre-import JSON backup is written in the destination's `migration` directory. To roll back, quit the app, preserve any newer local tasks, then restore that backup to `tasks.json`. Re-running the importer does not synchronize later source changes or overwrite existing local tasks.
+本仓库早期独立实现的 MIT 声明仅适用于那些历史提交中的独立代码，**不适用于当前替换进来的 EdgeTodo 衍生代码及资源**。

@@ -1,5 +1,16 @@
-.build/
-.swiftpm/
+# Generated binaries / local build output
+build/
 dist/
+.build/
+*.dmg
 .DS_Store
-*.xcuserstate
+# Never publish private reminders, exports, screenshots or secrets
+screenshots/
+*.log
+.env
+.env.*
+private/
+migration/
+tasks.json
+*readonly*.json
+*verification*.json

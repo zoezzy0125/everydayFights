@@ -1,11 +1,13 @@
-name: macOS build and tests
+name: macOS checks
 on: [push, pull_request]
 permissions:
   contents: read
 jobs:
-  test:
-    runs-on: macos-14
+  test-and-build:
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - run: swift test
-      - run: ./scripts/build-app.sh
+      - name: Test pure logic and unsaved metadata
+        run: ./scripts/test.sh
+      - name: Compile app without launching
+        run: ./build.sh
