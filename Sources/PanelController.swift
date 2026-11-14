@@ -1677,7 +1677,7 @@ final class TodoRowView: NSView {
         let dailyChild = NSMenuItem(title: L10n.t("添加 Daily 小事项…", "Add Daily Task…"), action: #selector(addDaily), keyEquivalent: "")
         dailyChild.target = self; dailyChild.isEnabled = subtask.isEnabled; menu.addItem(dailyChild)
         let linkMenu = NSMenu()
-        for parent in availableTasks.sorted(by: { $0.title.localizedStandardCompare($1.title) == .orderedAscending }) {
+        for parent in availableTasks.filter({ !$0.isDaily && !$0.isCompleted }).sorted(by: { $0.title.localizedStandardCompare($1.title) == .orderedAscending }) {
             guard hierarchy.violation(moving: item.id, to: parent.id) == nil else { continue }
             let path = (hierarchy.ancestors(of: parent.id) ?? []).reversed().map(\.title) + [parent.title]
             let option = NSMenuItem(title: path.joined(separator: " › "), action: #selector(linkParent(_:)), keyEquivalent: "")
@@ -1686,7 +1686,7 @@ final class TodoRowView: NSView {
             linkMenu.addItem(option)
         }
         if linkMenu.items.isEmpty {
-            let none = NSMenuItem(title: L10n.t("没有可关联的任务（最多三级）", "No eligible task (maximum 3 levels)"), action: nil, keyEquivalent: "")
+            let none = NSMenuItem(title: L10n.t("没有可关联的进行中目标", "No eligible active goal"), action: nil, keyEquivalent: "")
             none.isEnabled = false; linkMenu.addItem(none)
         }
         let link = NSMenuItem(title: L10n.t("关联到大事项…", "Link to Task…"), action: nil, keyEquivalent: "")
