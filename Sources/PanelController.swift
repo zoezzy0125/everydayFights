@@ -437,6 +437,7 @@ final class PanelController: NSObject, NSTextFieldDelegate {
     private let sectionPicker = NSSegmentedControl(labels: ["Daily Todo", "Short-term Goal"], trackingMode: .selectOne, target: nil, action: nil)
     private var dailySection = true
     private var showDailyHistory = false
+    private let dailyOrder = DailyOrder()
     private var showGoalHistory = false
     private var emptyView: NSView!
     private var permissionView: NSView!
@@ -1120,6 +1121,9 @@ final class PanelController: NSObject, NSTextFieldDelegate {
     // MARK: 刷新
 
     func refresh() {
+        // Keep native drag source alive through timer/EventKit refreshes. Rebuild on drag end.
+        guard !DailyDragHandle.isDragging else { return }
+        let focusedTaskID = (rowsStack.window?.firstResponder as? DailyDragHandle)?.taskID
         // 演示模式用语言对应的假列表名，避免英文界面里挂着一串中文真实列表名
         let listName = demoMode
             ? L10n.t("提醒", "Reminders")
@@ -1154,15 +1158,15 @@ final class PanelController: NSObject, NSTextFieldDelegate {
                 let today = store.allItems.filter { todayIDs.contains($0.id) }
                 displayItems = showDailyHistory
                     ? store.allItems.filter { $0.isDaily }.sorted { $0.day > $1.day }
-                    : today.filter { !$0.isCompleted }
+                    : today
                 let text: String
                 if showDailyHistory {
                     text = L10n.t("历史与计划 · 保留记录，不计逾期", "History & plans · kept safely, no overdue labels")
                 } else if today.isEmpty {
                     text = L10n.t("☀️ 新的一天，慢慢来。写下今天想完成的小事吧。", "☀️ A fresh start. One small step is enough. What would you like to do today?")
-                } else if displayItems.isEmpty {
+                } else if today.allSatisfy(\.isCompleted) {
                     text = L10n.t("🌷 今天的清单完成啦，辛苦了。", "🌷 Today's list is done. You did well.")
-                } else { text = L10n.t("☀️ 今天 · 一件一件来", "☀️ Today · one thing at a time") }
+                } else { text = L10n.t("☀️ 今天 · 拖动 ⋮⋮ 调整轻重缓急", "☀️ Today · drag ⋮⋮ to prioritize") }
                 let label = NSTextField(wrappingLabelWithString: text)
                 label.font = .systemFont(ofSize: 12)
                 label.textColor = .secondaryLabelColor
@@ -1186,8 +1190,21 @@ final class PanelController: NSObject, NSTextFieldDelegate {
         // Resolve structure only after filtering; shared Daily rows keep the same reminder ID.
         let visibleTree = TaskHierarchy(nodes: displayItems.map(\.treeNode))
         let map = Dictionary(displayItems.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        for (id, indent) in visibleTree.ordered(Set(map.keys)) {
+        let rankedDaily = dailySection && !showDailyHistory && !demoMode
+        let rowOrder: [(String, Int)] = rankedDaily
+            ? dailyOrder.orderedIDs(nodes: displayItems.map(\.treeNode)).map { ($0, 0) }
+            : visibleTree.ordered(Set(map.keys))
+        let activeIDs = rowOrder.map(\.0).filter { map[$0]?.isCompleted == false }
+        var addedDoneHeading = false
+        for (id, indent) in rowOrder {
             guard let item = map[id] else { continue }
+            if rankedDaily && item.isCompleted && !addedDoneHeading {
+                let done = NSTextField(labelWithString: L10n.t("✓ 今天完成 · ", "✓ Done today · ") + String(displayItems.filter(\.isCompleted).count))
+                done.font = .systemFont(ofSize: 11, weight: .medium)
+                done.textColor = .secondaryLabelColor
+                rowsStack.addArrangedSubview(done)
+                addedDoneHeading = true
+            }
             let path = store.hierarchy.ancestors(of: id)?.reversed().map(\.title).joined(separator: " › ") ?? ""
             let row = TodoRowView(item: item, indent: indent, parentPath: path, hierarchy: store.hierarchy, availableTasks: store.allItems, lists: store.lists)
             if !demoMode {
@@ -1195,10 +1212,43 @@ final class PanelController: NSObject, NSTextFieldDelegate {
                 row.onAddSubtask = { [weak self] in self?.startSubtask(item) }
                 row.onAddDaily = { [weak self] in self?.startSubtask(item, asDaily: true) }
             }
+            if rankedDaily, let rank = activeIDs.firstIndex(of: id) {
+                row.configureDailyPriority(rank: rank, count: activeIDs.count)
+                row.onReorder = { [weak self] source, target, after in
+                    guard let self = self else { return }
+                    // Re-read live IDs: an EventKit completion/deletion may arrive during a drag.
+                    let ids = self.store.hierarchy.dailyTodayIDs()
+                    let live = self.store.allItems.filter { ids.contains($0.id) && !$0.isCompleted }
+                    let order = self.dailyOrder.orderedIDs(nodes: live.map(\.treeNode))
+                    if self.dailyOrder.move(id: source, relativeTo: target, after: after, activeIDs: order) {
+                        self.refresh()
+                    }
+                }
+                row.onMovePriority = { [weak self] direction in
+                    guard let self = self else { return }
+                    let ids = self.store.hierarchy.dailyTodayIDs()
+                    let live = self.store.allItems.filter { ids.contains($0.id) && !$0.isCompleted }
+                    let order = self.dailyOrder.orderedIDs(nodes: live.map(\.treeNode))
+                    guard let index = order.firstIndex(of: id), order.indices.contains(index + direction) else { return }
+                    _ = self.dailyOrder.move(id: id, relativeTo: order[index + direction], after: direction > 0, activeIDs: order)
+                    self.refresh()
+                    if let updated = self.rowsStack.arrangedSubviews.compactMap({ $0 as? TodoRowView }).first(where: { $0.item.id == id }),
+                       let handle = updated.subviews.first(where: { $0 is DailyDragHandle }) {
+                        updated.window?.makeFirstResponder(handle)
+                    }
+                }
+                row.onDragEnd = { [weak self] in self?.refresh() }
+            }
             row.onRemind = { [weak self] in self?.beginEdit(item) }
             row.translatesAutoresizingMaskIntoConstraints = false
             rowsStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: rowsStack.widthAnchor).isActive = true
+        }
+
+        if let focusedTaskID = focusedTaskID,
+           let row = rowsStack.arrangedSubviews.compactMap({ $0 as? TodoRowView }).first(where: { $0.item.id == focusedTaskID }),
+           let handle = row.subviews.first(where: { $0 is DailyDragHandle }) {
+            row.window?.makeFirstResponder(handle)
         }
 
         // forcePermission 仅用于预览未授权状态的排版（调试开关）
@@ -1511,6 +1561,13 @@ final class TodoRowView: NSView {
     var onRemind: (() -> Void)?
     var onAddSubtask: (() -> Void)?
     var onAddDaily: (() -> Void)?
+    var onReorder: ((String, String, Bool) -> Void)?
+    var onMovePriority: ((Int) -> Void)?
+    var onDragEnd: (() -> Void)?
+    private var priorityColor: NSColor?
+    private var priorityRank: Int?
+    private var dropAfter = false
+    private let dropLine = NSView()
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -1542,20 +1599,29 @@ final class TodoRowView: NSView {
         addSubview(circle)
 
         let dailyOverdue = item.isDaily && DayCountdown.dailyOverdue(day: item.day, completed: item.isCompleted)
-        let urgency = item.isDaily ? (DayCountdown.inDailyToday(day: item.day, completed: item.isCompleted) && !item.isCompleted ? "🚨" : "") : DayCountdown.urgency(due: item.due)
+        let urgency = item.isCompleted ? "" : item.isDaily ? (DayCountdown.inDailyToday(day: item.day, completed: item.isCompleted) && !item.isCompleted ? "🚨" : "") : DayCountdown.urgency(due: item.due)
         titleLabel.stringValue = [item.customEmoji ?? "", urgency, item.title].filter { !$0.isEmpty }.joined(separator: " ")
         titleLabel.font = .systemFont(ofSize: 13)
-        titleLabel.textColor = dailyOverdue ? .systemRed : .labelColor
+        titleLabel.textColor = item.isCompleted ? .secondaryLabelColor : dailyOverdue ? .systemRed : .labelColor
+        if item.isCompleted {
+            titleLabel.attributedStringValue = NSAttributedString(string: titleLabel.stringValue, attributes: [
+                .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .font: NSFont.systemFont(ofSize: 13)
+            ])
+            circle.isEnabled = false
+            circle.setAccessibilityLabel(L10n.t("已完成", "Completed"))
+        }
         titleLabel.maximumNumberOfLines = 2
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.cell?.wraps = true
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
-        countdownLabel.stringValue = item.isDaily
+        countdownLabel.stringValue = item.isCompleted ? L10n.t("已完成", "Done") : item.isDaily
             ? DayCountdown.dailyText(day: item.day, completed: item.isCompleted, english: L10n.isEnglish)
             : DayCountdown.text(due: item.due, english: L10n.isEnglish)
         countdownLabel.font = .systemFont(ofSize: 11, weight: .semibold)
-        countdownLabel.textColor = dailyOverdue ? .systemRed : item.isDaily ? .secondaryLabelColor : item.due.map(DueFmt.color) ?? .secondaryLabelColor
+        countdownLabel.textColor = item.isCompleted ? .secondaryLabelColor : dailyOverdue ? .systemRed : item.isDaily ? .secondaryLabelColor : item.due.map(DueFmt.color) ?? .secondaryLabelColor
         countdownLabel.translatesAutoresizingMaskIntoConstraints = false
         countdownLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         countdownLabel.setContentHuggingPriority(.required, for: .horizontal)
@@ -1588,7 +1654,7 @@ final class TodoRowView: NSView {
         ])
 
         if let due = item.due {
-            let tint: NSColor = dailyOverdue ? .systemRed : item.isDaily ? .secondaryLabelColor : DueFmt.color(due)
+            let tint: NSColor = item.isCompleted ? .secondaryLabelColor : dailyOverdue ? .systemRed : item.isDaily ? .secondaryLabelColor : DueFmt.color(due)
             dueLabel.stringValue = item.isDaily && !item.isCompleted && !DayCountdown.isToday(item.day) && DayCountdown.inDailyToday(day: item.day, completed: false)
                 ? L10n.t("顺延 · 原定 ", "Carried over · ") + DueFmt.shortDate.string(from: due)
                 : DueFmt.text(due)
@@ -1669,6 +1735,72 @@ final class TodoRowView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    func configureDailyPriority(rank: Int, count: Int) {
+        guard !item.isCompleted else { return }
+        priorityRank = rank
+        let strength = count <= 1 ? 1 : 1 - Double(rank) / Double(count - 1)
+        // A single cool lavender scale conveys rank; red remains reserved for overdue text.
+        priorityColor = NSColor.systemIndigo.withAlphaComponent(0.035 + 0.11 * strength)
+        layer?.backgroundColor = priorityColor?.cgColor
+        let handle = DailyDragHandle()
+        handle.taskID = item.id
+        handle.onEnd = { [weak self] in self?.onDragEnd?() }
+        handle.onMove = { [weak self] direction in self?.onMovePriority?(direction) }
+        handle.rank = rank
+        handle.count = count
+        handle.setAccessibilityLabel(L10n.t("调整优先级：", "Reorder: ") + item.title)
+        handle.setAccessibilityHelp(L10n.t("优先级 \(rank + 1)/\(count)。方向键上下移动；也可拖动。", "Priority \(rank + 1) of \(count). Use Up/Down arrows or drag."))
+        handle.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(handle)
+        for c in constraints where (c.firstItem as? NSView) === circle && c.firstAttribute == .leading { c.constant = 31 }
+        NSLayoutConstraint.activate([
+            handle.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            handle.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            handle.widthAnchor.constraint(equalToConstant: 23),
+            handle.heightAnchor.constraint(equalToConstant: 25)
+        ])
+        dropLine.wantsLayer = true
+        dropLine.layer?.backgroundColor = NSColor.systemIndigo.cgColor
+        dropLine.isHidden = true
+        addSubview(dropLine)
+        registerForDraggedTypes([DailyDragHandle.pasteboardType])
+        for (title, action, enabled) in [
+            (L10n.t("提高优先级 ↑", "Move up ↑"), #selector(movePriorityUp), rank > 0),
+            (L10n.t("降低优先级 ↓", "Move down ↓"), #selector(movePriorityDown), rank + 1 < count)
+        ] {
+            let option = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            option.target = self; option.isEnabled = enabled
+            menu?.addItem(option)
+        }
+    }
+
+    @objc private func movePriorityUp() { onMovePriority?(-1) }
+    @objc private func movePriorityDown() { onMovePriority?(1) }
+
+    private func validDrag(_ sender: NSDraggingInfo) -> DailyDragHandle? {
+        guard priorityRank != nil, !item.isCompleted,
+              let source = sender.draggingSource as? DailyDragHandle,
+              source.taskID != item.id, source.window === window else { return nil }
+        return source
+    }
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { draggingUpdated(sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard validDrag(sender) != nil else { return [] }
+        let y = convert(sender.draggingLocation, from: nil).y
+        dropAfter = isFlipped ? y > bounds.midY : y < bounds.midY
+        dropLine.frame = NSRect(x: 5, y: dropAfter != isFlipped ? 0 : bounds.height - 2, width: bounds.width - 10, height: 2)
+        dropLine.isHidden = false
+        if let event = NSApp.currentEvent { _ = autoscroll(with: event) }
+        return .move
+    }
+    override func draggingExited(_ sender: NSDraggingInfo?) { dropLine.isHidden = true }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let source = validDrag(sender) else { return false }
+        dropLine.isHidden = true
+        onReorder?(source.taskID, item.id, dropAfter)
+        return true
+    }
 
     private func buildMenu(hierarchy: TaskHierarchy, availableTasks: [TodoItem], lists: [EKCalendar]) -> NSMenu {
         let menu = NSMenu()
@@ -1759,14 +1891,14 @@ final class TodoRowView: NSView {
         hovering = true
         bell.isHidden = false
         circle.contentTintColor = .controlAccentColor
-        layer?.backgroundColor = Look.tint(0.06).cgColor
+        layer?.backgroundColor = (priorityColor ?? Look.tint(0.06)).cgColor
     }
 
     override func mouseExited(with event: NSEvent) {
         hovering = false
         bell.isHidden = true
         circle.contentTintColor = .tertiaryLabelColor
-        layer?.backgroundColor = nil
+        layer?.backgroundColor = priorityColor?.cgColor
     }
 
     override func layout() {

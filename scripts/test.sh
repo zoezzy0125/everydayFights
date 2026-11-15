@@ -10,3 +10,6 @@ swiftc -framework AppKit -framework EventKit Sources/TaskHierarchy.swift Sources
 
 swiftc Sources/TaskHierarchy.swift Sources/TaskHistoryText.swift Tests/Hierarchy.swift -o "$TEMP_DIR/hierarchy-tests"
 "$TEMP_DIR/hierarchy-tests"
+
+swiftc Sources/TaskHierarchy.swift Sources/DailyOrder.swift Tests/DailyOrderTests.swift -o "$TEMP_DIR/daily-order-tests"
+"$TEMP_DIR/daily-order-tests"

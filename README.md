@@ -4,9 +4,9 @@
 
 **everydayFights 是一个轻量的 macOS 桌面侧边待办小工具**：不是浏览器插件，也不是 iPhone App。平时隐藏在屏幕边缘，唤出后可以安排今天的任务、追踪短期目标、查看截止倒计时。
 
-> 当前发布的是基于 EdgeTodo v1.3.2 的系统提醒事项定制版 `1.3.2-local.12`，不是本仓库早期的独立 JSON 存储实现。旧提交保留供历史查阅。
+> 当前发布的是基于 EdgeTodo v1.3.2 的系统提醒事项定制版 `1.3.2-local.14`，不是本仓库早期的独立 JSON 存储实现。旧提交保留供历史查阅。
 
-- **截止日期是今天的未完成 Short-term Goal** 会自动显示在 Daily，仍是同一个提醒而非副本，两处完成状态一致。不修改分类、日期或目标历史。无日期、已完成及非当天截止的目标不加入；过期目标仍在 Goal，不自动顺延到 Daily。可见面板每 30 秒刷新，重新打开也会刷新。
+- **截止日期是今天的未完成 Short-term Goal** 会自动显示在 Daily，仍是同一个提醒而非副本，两处完成状态一致。不修改分类、日期或目标历史。无日期及非当天截止的目标不加入；当日到期并于当日完成的目标会在完成区保留到午夜；过期目标仍在 Goal，不自动顺延到 Daily。可见面板每 30 秒刷新，重新打开也会刷新。
 
 ## 功能
 
@@ -131,3 +131,10 @@ cd everydayFights
 删除父任务只解除直接小任务的归属，保留这些小任务及更深层关系，不会级联删除。操作失败会显示错误并重新读取系统状态。不会自动删除任何现有任务；每次删除均需用户确认。
 
 Use the row's trash button or context-menu Delete. Cancel is the default. Confirming deletes the corresponding Apple reminder and its alarms, without marking it completed or leaving a History entry. There is no in-app Trash or undo. Treat deletion as permanent; system recovery depends on the OS/account and is not guaranteed. Direct subtasks are preserved and unlinked; deeper links remain. No tasks are deleted automatically.
+
+### Daily 排序与完成记录
+- 当天完成的 Daily 会留在最下方「今天完成」中，打勾并划线；之前顺延过来的任务也按实际完成日期保留到当天结束。第二天不再占据今日清单，历史记录仍保留。当日到期的 Goal 当天完成后也保留在完成区。
+- 未完成项默认按添加时间排列；拖动 **⋮⋮** 拉手，放到另一未完成项上半部/下半部即可调整顺序。越靠前淡紫底色越深，逾期仍以红色文字区分，完成项不参与排序。
+- 可用键盘聚焦拉手后按 ↑/↓、VoiceOver 操作，或右键「提高/降低优先级」，不必拖动。
+- 手动顺序保存在本机，刷新和重启后仍保留。新进入清单的任务追加在已有排序后面；完成或暂时离开今日的任务保留原相对位置。不会改 Apple 提醒事项的优先级、日期和备注，不跨 Mac 同步。
+- Daily 平铺以允许子任务独立排序，同时显示归属路径；Goal 树与历史关系不变。删除后的排序 ID 可能保存在本地偏好中，但不会重新创建任务。

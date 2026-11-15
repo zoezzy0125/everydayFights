@@ -84,6 +84,19 @@ import Foundation
     let doneTree = TaskHierarchy(nodes:[n("due",done:true,due:today)])
     assert(doneTree.dailyTodayIDs(now:today,calendar:cal).isEmpty)
     assert(!doneTree.goalIDs(includeCompleted:false).contains("due"))
+    let celebration = TaskHierarchy(nodes:[
+        n("carriedDone",daily:true,done:true,due:yesterday,completedAt:today),
+        n("oldDone",daily:true,done:true,due:today,completedAt:yesterday),
+        n("goalDone",done:true,due:today,completedAt:today),
+        n("oldGoalDone",done:true,due:yesterday,completedAt:today),
+        n("futureGoalDone",done:true,due:tomorrow,completedAt:today),
+        n("oldDoneWithoutDate",daily:true,done:true,due:yesterday),
+        n("todayDoneWithoutDate",daily:true,done:true,due:today)])
+    assert(celebration.dailyTodayIDs(now:today,calendar:cal) == Set(["carriedDone","goalDone","todayDoneWithoutDate"]))
+    assert(celebration.dailyTodayIDs(now:tomorrow,calendar:cal).isEmpty)
+    assert(celebration.byID["carriedDone"]!.due == yesterday)
+    assert(celebration.dailyHistory(of:"missing").isEmpty)
+    print("PASS: completion-day retention, cross-day removal, overdue date preserved, no unrelated goal expansion")
     print("PASS: 12 due-today goal selection checks (same ID, midnight, no date, completion, no goal carryover)")
     print("PASS: 42 hierarchy, relationship, dual-view and truthful history checks; synthetic only")
  }

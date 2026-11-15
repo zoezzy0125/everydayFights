@@ -4,7 +4,7 @@ A lightweight macOS side-panel to-do utility, based on [tangbonze/EdgeTodo](http
 
 [完整中文使用说明](README.md)
 
-- Incomplete **Short-term Goals due today** also appear in Daily Todo as the same reminder, not a copy. Completing either view updates the same task. Classification, dates, and goal history are unchanged. Goals without dates, completed goals, and goals due on other days are not added; overdue goals remain in Goal, not carried into Daily. The visible panel refreshes every 30 seconds and when reopened.
+- Incomplete **Short-term Goals due today** also appear in Daily Todo as the same reminder, not a copy. Completing either view updates the same task. Classification, dates, and goal history are unchanged. Goals without dates and goals due on other days are not added; goals completed today remain in today’s completion area until midnight; overdue goals remain in Goal, not carried into Daily. The visible panel refreshes every 30 seconds and when reopened.
 
 ## Quick start
 
@@ -53,3 +53,10 @@ Thanks to **tangbonze**, author of EdgeTodo. The maintainer has confirmed obtain
 Use the trash button at the end of a row (or right-click Delete), then confirm. This moves the task to **app Trash**, hiding it from Daily, Goal and History without marking it complete. The Apple reminder and its existing alarms remain unchanged, so scheduled notifications may still fire; this is not system deletion. Restore from the top list dropdown → **Trash · restore task** for the current list. Trash is not automatically emptied.
 
 Deleting a parent unlinks only its direct children; children and deeper relationships are kept. Restoring the parent does not automatically relink them; use Link to Task. If the reminder itself is deleted externally, app Trash cannot reconstruct it.
+
+### Daily order and achievements
+- Today's completed Daily tasks stay at the bottom under **Done today**, with a checkmark and strikethrough. A carried-over task completed today stays there today, regardless of its original due date. Tomorrow it leaves Today, not History. A goal due today likewise remains after completion today.
+- Unfinished Daily rows initially follow creation/addition order. Drag the **⋮⋮** handle above or below another unfinished row to change priority. Higher rows have deeper, soft lavender shading; overdue text remains red. Completed rows cannot be reordered.
+- Keyboard/VoiceOver: focus a handle and use Up/Down, use its accessibility actions, or right-click and choose **Move up / Move down**.
+- Custom order is saved locally on this Mac and survives refresh/relaunch. Newly appearing tasks append after ranked tasks; existing relative ranks survive completion or temporarily leaving Today. Ordering does not edit Apple Reminders priorities/dates/notes and does not sync between Macs.
+- Daily uses a flat priority list with parent breadcrumbs so child tasks can be prioritized independently. Goal trees and dated history retain their relationships. Deleting a row removes it from the UI; local rank IDs may remain until app preferences are cleared and never recreate a reminder.
