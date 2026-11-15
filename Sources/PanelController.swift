@@ -1150,7 +1150,8 @@ final class PanelController: NSObject, NSTextFieldDelegate {
         }
         if !demoMode {
             if dailySection {
-                let today = store.allItems.filter { $0.isDaily && DayCountdown.inDailyToday(day: $0.day, completed: $0.isCompleted) }
+                let todayIDs = store.hierarchy.dailyTodayIDs()
+                let today = store.allItems.filter { todayIDs.contains($0.id) }
                 displayItems = showDailyHistory
                     ? store.allItems.filter { $0.isDaily }.sorted { $0.day > $1.day }
                     : today.filter { !$0.isCompleted }

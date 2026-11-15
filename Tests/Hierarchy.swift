@@ -57,6 +57,34 @@ import Foundation
     assert(!history.contains("Overdue"))
     assert(TaskHistoryText.render([n("noDate",daily:true)],english:true).contains("Date unknown"))
     assert(TaskHistoryText.render([],english:true).contains("No linked"))
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = TimeZone(identifier: "America/New_York")!
+    let today = cal.date(from: DateComponents(year:2026, month:11, day:15, hour:12))!
+    let yesterday = cal.date(byAdding:.day,value:-1,to:today)!
+    let tomorrow = cal.date(byAdding:.day,value:1,to:today)!
+    let dueTree = TaskHierarchy(nodes:[
+        n("due",due:today), n("due",due:today), n("doneGoal",done:true,due:today),
+        n("yesterdayGoal",due:yesterday), n("tomorrowGoal",due:tomorrow), n("undated",created:today),
+        n("dailyPast",daily:true,due:yesterday), n("dailyToday",daily:true,due:today),
+        n("dailyDone",daily:true,done:true,due:today), n("dailyFuture",daily:true,due:tomorrow),
+        n("child","due",daily:true,due:today)])
+    let ids = dueTree.dailyTodayIDs(now:today,calendar:cal)
+    assert(ids == Set(["due","dailyPast","dailyToday","dailyDone","child"]))
+    assert(ids.intersection(dueTree.goalIDs(includeCompleted:false)).contains("due"))
+    assert(dueTree.byID["due"]!.daily == false)
+    assert(dueTree.byID["due"]!.due == today)
+    assert(dueTree.byID["child"]!.parentID == "due")
+    let tomorrowIDs = dueTree.dailyTodayIDs(now:tomorrow,calendar:cal)
+    assert(!tomorrowIDs.contains("due") && tomorrowIDs.contains("tomorrowGoal"))
+    assert(tomorrowIDs.contains("dailyPast") && tomorrowIDs.contains("dailyToday"))
+    assert(!tomorrowIDs.contains("dailyDone"))
+    let midnight = cal.startOfDay(for:today)
+    assert(!dueTree.dailyTodayIDs(now:midnight.addingTimeInterval(-1),calendar:cal).contains("due"))
+    assert(dueTree.dailyTodayIDs(now:midnight,calendar:cal).contains("due"))
+    let doneTree = TaskHierarchy(nodes:[n("due",done:true,due:today)])
+    assert(doneTree.dailyTodayIDs(now:today,calendar:cal).isEmpty)
+    assert(!doneTree.goalIDs(includeCompleted:false).contains("due"))
+    print("PASS: 12 due-today goal selection checks (same ID, midnight, no date, completion, no goal carryover)")
     print("PASS: 42 hierarchy, relationship, dual-view and truthful history checks; synthetic only")
  }
 }

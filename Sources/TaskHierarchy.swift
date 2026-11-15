@@ -16,6 +16,19 @@ struct TaskHierarchy {
     enum Violation: String { case missing, cycle, tooDeep }
     let nodes: [Node]
     var byID: [String: Node] { Dictionary(nodes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
+    /// Daily carry-over plus incomplete goals due on this calendar day only.
+    /// Selection never changes the reminder's section, deadline, or identity.
+    func dailyTodayIDs(now: Date = Date(), calendar: Calendar = .current) -> Set<String> {
+        Set(nodes.filter { node in
+            if node.daily {
+                let day = node.taskDate ?? now
+                return node.completed ? calendar.isDate(day, inSameDayAs: now)
+                    : calendar.startOfDay(for: day) <= calendar.startOfDay(for: now)
+            }
+            guard !node.completed, let due = node.due else { return false }
+            return calendar.isDate(due, inSameDayAs: now)
+        }.map(\.id))
+    }
     func ancestors(of id: String) -> [Node]? {
         let map = byID
         guard var node = map[id] else { return nil }

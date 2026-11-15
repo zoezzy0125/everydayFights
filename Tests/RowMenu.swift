@@ -53,6 +53,20 @@ import EventKit
     assert(!trashButtons[0].isHidden)
     assert(trashButtons[0].toolTip != nil)
     assert(item(rootView,"deleteItem").target != nil)
+    root.dueDateComponents = Calendar.current.dateComponents([.year,.month,.day,.hour,.minute], from: Date())
+    let dueGoal = TodoItem(reminder:root)
+    let dueHierarchy = TaskHierarchy(nodes:[dueGoal.treeNode])
+    assert(dueHierarchy.dailyTodayIDs().contains(dueGoal.id))
+    assert(dueHierarchy.goalIDs(includeCompleted:false).contains(dueGoal.id))
+    let dailyGoalRow = TodoRowView(item:dueGoal,hierarchy:dueHierarchy,availableTasks:[dueGoal],lists:[])
+    dailyGoalRow.frame = NSRect(x:0,y:0,width:360,height:85)
+    dailyGoalRow.layoutSubtreeIfNeeded()
+    assert(dailyGoalRow.subviews.compactMap { $0 as? NSTextField }.contains { $0.stringValue.contains("Synthetic goal") })
+    assert(item(dailyGoalRow,"changeSection").title == "Move to Daily Todo")
+    assert(!dueGoal.isDaily && dueGoal.reminder === root)
+    root.isCompleted = true // unsaved synthetic object only
+    assert(TaskHierarchy(nodes:[dueGoal.treeNode]).dailyTodayIDs().isEmpty)
+    print("PASS: 6 isolated due-today goal row/identity checks")
     print("PASS: 22 isolated AppKit menu/layout checks; no real reminders or visible UI")
  }
 }

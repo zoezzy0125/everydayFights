@@ -4,6 +4,8 @@ A lightweight macOS side-panel to-do utility, based on [tangbonze/EdgeTodo](http
 
 [完整中文使用说明](README.md)
 
+- Incomplete **Short-term Goals due today** also appear in Daily Todo as the same reminder, not a copy. Completing either view updates the same task. Classification, dates, and goal history are unchanged. Goals without dates, completed goals, and goals due on other days are not added; overdue goals remain in Goal, not carried into Daily. The visible panel refreshes every 30 seconds and when reopened.
+
 ## Quick start
 
 Apple Silicon Mac, macOS 13+, and Xcode Command Line Tools are required. No prebuilt installer for this revision is published yet.
