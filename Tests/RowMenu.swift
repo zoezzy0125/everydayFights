@@ -48,6 +48,11 @@ import EventKit
     daily.isCompleted = true
     let completedRow = TodoRowView(item:TodoItem(reminder:daily),hierarchy:tree,availableTasks:all,lists:[])
     assert(!completedRow.subviews.compactMap { $0 as? NSTextField }.contains { $0.stringValue.contains("-1") })
-    print("PASS: 18 isolated AppKit menu/layout checks; no real reminders or visible UI")
+    let trashButtons = rootView.subviews.compactMap { $0 as? NSButton }.filter { $0.action.map(NSStringFromSelector) == "deleteItem" }
+    assert(trashButtons.count == 1)
+    assert(!trashButtons[0].isHidden)
+    assert(trashButtons[0].toolTip != nil)
+    assert(item(rootView,"deleteItem").target != nil)
+    print("PASS: 22 isolated AppKit menu/layout checks; no real reminders or visible UI")
  }
 }

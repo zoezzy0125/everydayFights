@@ -12,6 +12,7 @@ struct TodoItem: Identifiable, Equatable {
         let prefix = "EdgeTodo-" + key + ": "
         return reminder.notes?.components(separatedBy: "\n").first(where: { $0.hasPrefix(prefix) }).map { String($0.dropFirst(prefix.count)) }
     }
+    var isDeleted: Bool { metadata("Deleted") == "true" }
     var isDaily: Bool { metadata("Section") == "daily" }
     var customEmoji: String? { metadata("Emoji") }
     var day: Date { due ?? reminder.creationDate ?? Date() }
@@ -48,6 +49,7 @@ final class TodoStore {
 
     private(set) var lists: [EKCalendar] = []
     private(set) var items: [TodoItem] = []
+    private(set) var deletedItems: [TodoItem] = []
     private(set) var allItems: [TodoItem] = []
     private(set) var authGranted: Bool = false
     private(set) var authDenied: Bool = false
@@ -156,8 +158,9 @@ final class TodoStore {
     }
 
     private func apply(_ raw: [EKReminder]) {
-        allItems = raw.map { TodoItem(reminder: $0) }
-        let active = raw.filter { !$0.isCompleted }
+        deletedItems = raw.map { TodoItem(reminder: $0) }.filter { $0.isDeleted }
+        allItems = raw.map { TodoItem(reminder: $0) }.filter { !$0.isDeleted }
+        let active = allItems.filter { !$0.isCompleted }.map(\.reminder)
         let sorted = active.sorted { a, b in
             let da = a.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
             let db = b.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
@@ -294,15 +297,53 @@ final class TodoStore {
         persist(item)
     }
 
-    func delete(_ item: TodoItem) {
+    /// Recoverable app trash: never removes the system reminder or counts it complete.
+    @discardableResult
+    func delete(_ item: TodoItem) -> Bool {
+        guard allItems.contains(where: { $0.id == item.id }) else { return false }
+        let children = allItems.filter { $0.parentID == item.id }
+        let changed = [item] + children
+        let oldNotes = changed.map { $0.reminder.notes }
         do {
-            try ek.remove(item.reminder, commit: true)
-            items.removeAll { $0.id == item.id }
-            notify()
-            reload()
+            item.reminder.notes = Self.deletedNotes(item.reminder.notes, deleted: true)
+            try ek.save(item.reminder, commit: false)
+            for child in children {
+                child.reminder.notes = TaskHierarchy.replacingParent(in: child.reminder.notes, with: nil)
+                try ek.save(child.reminder, commit: false)
+            }
+            try ek.commit()
+            lastError = nil; reload(); return true
         } catch {
-            lastError = error.localizedDescription
-            notify()
+            // Discard all staged writes, then refetch the authoritative state.
+            ek.reset()
+            for (changedItem, notes) in zip(changed, oldNotes) { changedItem.reminder.notes = notes }
+            lastError = error.localizedDescription; reload(); return false
+        }
+    }
+
+    static func deletedNotes(_ notes: String?, deleted: Bool) -> String? {
+        var lines = (notes ?? "").components(separatedBy: "\n").filter { !$0.hasPrefix("EdgeTodo-Deleted: ") }
+        if deleted { lines.append("EdgeTodo-Deleted: true") }
+        let result = lines.joined(separator: "\n")
+        return result.isEmpty ? nil : result
+    }
+
+    @discardableResult
+    func restore(_ item: TodoItem) -> Bool {
+        guard deletedItems.contains(where: { $0.id == item.id }) else { return false }
+        let oldNotes = item.reminder.notes
+        var notes = Self.deletedNotes(oldNotes, deleted: false)
+        // Restore as a root if its former parent is no longer visible/valid.
+        if let parent = item.parentID, TaskHierarchy(nodes: (allItems + [item]).map(\.treeNode)).violation(moving: item.id, to: parent) != nil {
+            notes = TaskHierarchy.replacingParent(in: notes, with: nil)
+        }
+        item.reminder.notes = notes
+        do {
+            try ek.save(item.reminder, commit: true)
+            lastError = nil; reload(); return true
+        } catch {
+            item.reminder.notes = oldNotes
+            lastError = error.localizedDescription; notify(); return false
         }
     }
 

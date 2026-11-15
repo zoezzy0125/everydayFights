@@ -40,8 +40,14 @@ Classification, icons and parent associations are metadata in reminder notes (`E
 
 This source replaces the repository's earlier independent JSON app. It does not import or delete that app's JSON data. Retain any private migration/export backups outside the repository.
 
-The local build passed compilation, 88 logic checks, and 18 isolated AppKit menu/layout checks using unsaved synthetic reminders and no displayed windows. Run `./scripts/test.sh` and `./scripts/test-ui.sh`. Real Reminders writes/restarts and full click-through flows have not completed end-to-end regression testing. No private reminders, exports, screenshots, or credentials are included.
+The local build passed compilation, 100 logic checks, and 22 isolated AppKit menu/layout checks using unsaved synthetic reminders and no displayed windows. Run `./scripts/test.sh` and `./scripts/test-ui.sh`. Real Reminders writes/restarts and full click-through flows have not completed end-to-end regression testing. No private reminders, exports, screenshots, or credentials are included.
 
 ## Attribution and permission
 
 Thanks to **tangbonze**, author of EdgeTodo. The maintainer has confirmed obtaining the author's permission to publish this customized version. Upstream does not provide a general open-source license; this statement is not an MIT license or blanket permission for further redistribution. Contact the relevant rights holders about reuse, modification, distribution, or commercial use. The MIT notice on older, independently implemented historical commits does **not** apply to this EdgeTodo-derived revision.
+
+## Delete and restore
+
+Use the trash button at the end of a row (or right-click Delete), then confirm. This moves the task to **app Trash**, hiding it from Daily, Goal and History without marking it complete. The Apple reminder and its existing alarms remain unchanged, so scheduled notifications may still fire; this is not system deletion. Restore from the top list dropdown → **Trash · restore task** for the current list. Trash is not automatically emptied.
+
+Deleting a parent unlinks only its direct children; children and deeper relationships are kept. Restoring the parent does not automatically relink them; use Link to Task. If the reminder itself is deleted externally, app Trash cannot reconstruct it.
