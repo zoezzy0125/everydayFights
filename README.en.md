@@ -22,7 +22,7 @@ Quit any existing EdgeTodo instance and copy `dist/EdgeTodo.app` to Applications
 
 - Open the panel using the edge handle or **Option–Command–T**. Click outside to dismiss it without discarding the unsaved draft.
 - **Daily Todo** opens by default. Enter a title, choose the date/year/month and time, then press Add or Return. **Today** selects today without changing the time.
-- Unfinished daily tasks from earlier days stay visible today until completed. This is a display-only carry-forward: original due dates and alarms are unchanged, no duplicate tasks or daily alarms are created.
+- Unfinished daily tasks from earlier days stay visible today until completed. Carried-over unfinished tasks are red with a signed countdown (for example, `-1d overdue`); today’s tasks still show `Today`, and completed tasks are not marked overdue. This is a display-only carry-forward: original due dates and alarms are unchanged, no duplicate tasks or daily alarms are created.
 - **History & plans** retains past, future and completed daily items.
 - **Short-term Goal** sorts by deadline and displays a calendar-day countdown. Automatic urgency: over 30 days 😌, 8–30 days 🏃, 2–7 days 🔥, today/tomorrow 👿, already due 🚨. Today's Daily tasks use 🚨.
 - Right-click a task for **Task emoji**, **Add Subtask…**, deadline editing, or moving between Daily Todo and Short-term Goal. Custom icons appear alongside urgency icons.
@@ -40,7 +40,7 @@ Classification, icons and parent associations are metadata in reminder notes (`E
 
 This source replaces the repository's earlier independent JSON app. It does not import or delete that app's JSON data. Retain any private migration/export backups outside the repository.
 
-The local build passed compilation, 77 logic checks, and 15 isolated AppKit menu/layout checks using unsaved synthetic reminders and no displayed windows. Run `./scripts/test.sh` and `./scripts/test-ui.sh`. Real Reminders writes/restarts and full click-through flows have not completed end-to-end regression testing. No private reminders, exports, screenshots, or credentials are included.
+The local build passed compilation, 88 logic checks, and 18 isolated AppKit menu/layout checks using unsaved synthetic reminders and no displayed windows. Run `./scripts/test.sh` and `./scripts/test-ui.sh`. Real Reminders writes/restarts and full click-through flows have not completed end-to-end regression testing. No private reminders, exports, screenshots, or credentials are included.
 
 ## Attribution and permission
 

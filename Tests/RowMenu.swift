@@ -37,6 +37,17 @@ import EventKit
     leafView.layoutSubtreeIfNeeded()
     assert(leafView.subviews.contains { ($0 as? NSTextField)?.stringValue == "↳ Synthetic goal › Synthetic paper" })
     assert(leafView.subviews.allSatisfy { $0.frame.origin.x.isFinite && $0.frame.origin.y.isFinite })
-    print("PASS: 15 isolated AppKit menu/layout checks; no real reminders or visible UI")
+    let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+    daily.dueDateComponents = Calendar.current.dateComponents([.year,.month,.day,.hour,.minute], from: yesterday)
+    let overdueItem = TodoItem(reminder: daily)
+    let overdueRow = TodoRowView(item:overdueItem,hierarchy:tree,availableTasks:all,lists:[])
+    let labels = overdueRow.subviews.compactMap { $0 as? NSTextField }
+    let signedLabel = labels.first { $0.stringValue.contains("-1") }!
+    assert(signedLabel.textColor == .systemRed)
+    assert(labels.first { $0.stringValue.contains("Other daily") }!.textColor == .systemRed)
+    daily.isCompleted = true
+    let completedRow = TodoRowView(item:TodoItem(reminder:daily),hierarchy:tree,availableTasks:all,lists:[])
+    assert(!completedRow.subviews.compactMap { $0 as? NSTextField }.contains { $0.stringValue.contains("-1") })
+    print("PASS: 18 isolated AppKit menu/layout checks; no real reminders or visible UI")
  }
 }

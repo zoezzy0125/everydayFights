@@ -1539,20 +1539,21 @@ final class TodoRowView: NSView {
         circle.translatesAutoresizingMaskIntoConstraints = false
         addSubview(circle)
 
+        let dailyOverdue = item.isDaily && DayCountdown.dailyOverdue(day: item.day, completed: item.isCompleted)
         let urgency = item.isDaily ? (DayCountdown.inDailyToday(day: item.day, completed: item.isCompleted) && !item.isCompleted ? "🚨" : "") : DayCountdown.urgency(due: item.due)
         titleLabel.stringValue = [item.customEmoji ?? "", urgency, item.title].filter { !$0.isEmpty }.joined(separator: " ")
         titleLabel.font = .systemFont(ofSize: 13)
-        titleLabel.textColor = .labelColor
+        titleLabel.textColor = dailyOverdue ? .systemRed : .labelColor
         titleLabel.maximumNumberOfLines = 2
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.cell?.wraps = true
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
         countdownLabel.stringValue = item.isDaily
-            ? (item.isCompleted ? L10n.t("已完成", "Done") : DayCountdown.inDailyToday(day: item.day, completed: item.isCompleted) ? L10n.t("今天", "Today") : L10n.t("保留", "Kept"))
+            ? DayCountdown.dailyText(day: item.day, completed: item.isCompleted, english: L10n.isEnglish)
             : DayCountdown.text(due: item.due, english: L10n.isEnglish)
         countdownLabel.font = .systemFont(ofSize: 11, weight: .semibold)
-        countdownLabel.textColor = item.isDaily ? .secondaryLabelColor : item.due.map(DueFmt.color) ?? .secondaryLabelColor
+        countdownLabel.textColor = dailyOverdue ? .systemRed : item.isDaily ? .secondaryLabelColor : item.due.map(DueFmt.color) ?? .secondaryLabelColor
         countdownLabel.translatesAutoresizingMaskIntoConstraints = false
         countdownLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         countdownLabel.setContentHuggingPriority(.required, for: .horizontal)
@@ -1585,7 +1586,7 @@ final class TodoRowView: NSView {
         ])
 
         if let due = item.due {
-            let tint: NSColor = item.isDaily ? .secondaryLabelColor : DueFmt.color(due)
+            let tint: NSColor = dailyOverdue ? .systemRed : item.isDaily ? .secondaryLabelColor : DueFmt.color(due)
             dueLabel.stringValue = item.isDaily && !item.isCompleted && !DayCountdown.isToday(item.day) && DayCountdown.inDailyToday(day: item.day, completed: false)
                 ? L10n.t("顺延 · 原定 ", "Carried over · ") + DueFmt.shortDate.string(from: due)
                 : DueFmt.text(due)

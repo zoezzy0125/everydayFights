@@ -39,3 +39,16 @@ let originalDate = beforeMidnight
 for _ in 0..<100 { assert(DayCountdown.inDailyToday(day: originalDate, completed: false, now: later, calendar: ucal)) }
 assert(originalDate == beforeMidnight)
 print("PASS: 7 virtual rollover checks (midnight, missed days, completion, future, idempotence)")
+
+assert(DayCountdown.dailyText(day: beforeMidnight, completed: false, now: afterMidnight, calendar: ucal, english: false) == "-1 天 · 已延期")
+assert(DayCountdown.dailyText(day: beforeMidnight, completed: false, now: later, calendar: ucal, english: true) == "-6d overdue")
+assert(DayCountdown.dailyOverdue(day: beforeMidnight, completed: false, now: afterMidnight, calendar: ucal))
+assert(!DayCountdown.dailyOverdue(day: beforeMidnight, completed: true, now: afterMidnight, calendar: ucal))
+assert(DayCountdown.dailyText(day: beforeMidnight, completed: true, now: later, calendar: ucal, english: true) == "Done")
+assert(DayCountdown.dailyText(day: afterMidnight, completed: false, now: afterMidnight, calendar: ucal, english: true) == "Today")
+assert(!DayCountdown.dailyOverdue(day: afterMidnight, completed: false, now: afterMidnight, calendar: ucal))
+assert(DayCountdown.dailyText(day: later, completed: false, now: afterMidnight, calendar: ucal, english: true) == "Kept")
+assert(DayCountdown.dailyText(day: date(2026,3,7), completed: false, now: date(2026,3,9), calendar: cal, english: true) == "-2d overdue")
+assert(DayCountdown.dailyText(day: date(2026,10,31), completed: false, now: date(2026,11,2), calendar: cal, english: true) == "-2d overdue")
+assert(DayCountdown.dailyText(day: date(2026,12,31), completed: false, now: date(2027,1,1), calendar: cal, english: true) == "-1d overdue")
+print("PASS: 11 signed Daily overdue cases including completion, midnight, DST and year rollover")
