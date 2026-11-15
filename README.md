@@ -4,7 +4,7 @@
 
 **everydayFights 是一个轻量的 macOS 桌面侧边待办小工具**：不是浏览器插件，也不是 iPhone App。平时隐藏在屏幕边缘，唤出后可以安排今天的任务、追踪短期目标、查看截止倒计时。
 
-> 当前发布的是基于 EdgeTodo v1.3.2 的系统提醒事项定制版 `1.3.2-local.11`，不是本仓库早期的独立 JSON 存储实现。旧提交保留供历史查阅。
+> 当前发布的是基于 EdgeTodo v1.3.2 的系统提醒事项定制版 `1.3.2-local.12`，不是本仓库早期的独立 JSON 存储实现。旧提交保留供历史查阅。
 
 ## 功能
 
@@ -122,8 +122,10 @@ cd everydayFights
 
 本仓库早期独立实现的 MIT 声明仅适用于那些历史提交中的独立代码，**不适用于当前替换进来的 EdgeTodo 衍生代码及资源**。
 
-## 删除与恢复
+## 删除任务 / Delete tasks
 
-点击任务行末尾垃圾桶（或右键“删除”），确认后移入**应用回收站**，从 Daily、Goal 和 History 中隐藏，不标记完成。系统提醒事项及其原有闹钟仍然保留，闹钟到时仍可能响；这不是系统删除。顶部列表下拉菜单 →“回收站 · 恢复任务”可恢复当前列表里的任务，没有自动清空。
+点击任务行末尾垃圾桶（或右键“删除”），确认框默认取消。确认删除后，会删除对应的 Apple 系统提醒事项及其闹钟，不标记完成，也不会出现在 Daily、Goal 或 History。没有应用回收站或撤销，请按永久删除处理：系统是否提供恢复取决于系统版本及账户，不保证可以恢复。
 
-删除父任务时仅解除直接小任务的归属，保留小任务及更深层关系。恢复父任务不会自动重新关联它们，可用 Link to Task 手动关联。若系统提醒事项本身被外部删除，此回收站无法重建它。
+删除父任务只解除直接小任务的归属，保留这些小任务及更深层关系，不会级联删除。操作失败会显示错误并重新读取系统状态。不会自动删除任何现有任务；每次删除均需用户确认。
+
+Use the row's trash button or context-menu Delete. Cancel is the default. Confirming deletes the corresponding Apple reminder and its alarms, without marking it completed or leaving a History entry. There is no in-app Trash or undo. Treat deletion as permanent; system recovery depends on the OS/account and is not guaranteed. Direct subtasks are preserved and unlinked; deeper links remain. No tasks are deleted automatically.

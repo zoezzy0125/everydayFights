@@ -1487,27 +1487,7 @@ final class PanelController: NSObject, NSTextFieldDelegate {
             item.state = (list.calendarIdentifier == current) ? .on : .off
             menu.addItem(item)
         }
-        menu.addItem(.separator())
-        let trash = NSMenuItem(title: L10n.t("回收站 · 恢复任务", "Trash · restore task"), action: nil, keyEquivalent: "")
-        let restoreMenu = NSMenu()
-        if store.deletedItems.isEmpty {
-            let empty = NSMenuItem(title: L10n.t("回收站为空", "Trash is empty"), action: nil, keyEquivalent: "")
-            empty.isEnabled = false; restoreMenu.addItem(empty)
-        }
-        for deleted in store.deletedItems {
-            let entry = NSMenuItem(title: deleted.title, action: #selector(restoreDeleted(_:)), keyEquivalent: "")
-            entry.target = self; entry.representedObject = deleted.id; restoreMenu.addItem(entry)
-        }
-        trash.submenu = restoreMenu; menu.addItem(trash)
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
-    }
-
-    @objc private func restoreDeleted(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String, let item = store.deletedItems.first(where: { $0.id == id }) else { return }
-        if !store.restore(item) {
-            let alert = NSAlert(); alert.messageText = L10n.t("未能恢复", "Could not restore")
-            alert.informativeText = store.lastError ?? ""; alert.runModal()
-        }
     }
 
     @objc private func listChosen(_ sender: NSMenuItem) {
@@ -1867,11 +1847,11 @@ final class TodoRowView: NSView {
         alert.alertStyle = .warning
         alert.messageText = L10n.t("删除任务？", "Delete task?")
         alert.informativeText = item.title + "\n\n" + L10n.t(
-            "将移入应用回收站，不再显示在任务列表或 History 中，也不会算作完成。系统提醒事项和原有提醒闹钟仍保留，闹钟到时仍可能响。可从顶部列表菜单的“回收站”恢复。",
-            "Move to app Trash, hide from task lists and History, without marking complete. The Apple reminder and its alarms remain unchanged, so scheduled notifications may still fire. Restore it from Trash in the top list menu.")
-        if children > 0 { alert.informativeText += "\n\n" + L10n.t("其 \(children) 个直接小任务会保留并解除归属；更下级关联保留。恢复时不会自动重新关联。", "Its \(children) direct subtasks will be kept and unlinked; deeper links remain. Restoring will not automatically relink them.") }
+            "将删除此任务及对应的 Apple 提醒事项和闹钟，不会算作完成，也不会出现在 History。本应用没有回收站或撤销。请按永久删除处理，不要依赖系统一定能恢复。",
+            "Delete this task and its Apple reminder, including its alarms. It will not count as completed or appear in History. This app has no Trash or undo. Treat this as permanent; system recovery is not guaranteed.")
+        if children > 0 { alert.informativeText += "\n\n" + L10n.t("其 \(children) 个直接小任务会保留并解除归属；更下级关联保留。", "Its \(children) direct subtasks will be kept and unlinked; deeper links remain.") }
         alert.addButton(withTitle: L10n.t("取消", "Cancel"))
-        alert.addButton(withTitle: L10n.t("移入回收站", "Move to Trash"))
+        alert.addButton(withTitle: L10n.t("删除任务及系统提醒", "Delete task and Apple reminder"))
         if alert.runModal() == .alertSecondButtonReturn, !store.delete(item) {
             let failure = NSAlert(); failure.messageText = L10n.t("未能删除", "Could not delete")
             failure.informativeText = store.lastError ?? ""; failure.runModal()
